@@ -2,6 +2,63 @@
 
 import { supabase } from "@/lib/supabase";
 import { mockSearchAmazon } from "@/lib/mock-amazon";
+import { searchProductImage } from "@/lib/pexels";
+import {
+  generate,
+  chatCompletion,
+  type OpenRouterModel,
+  type ChatMessage,
+} from "@/lib/openrouter";
+
+
+/**
+ * Generate AI response via OpenRouter (Gemini, Claude, GPT, etc.).
+ * Use for any feature that needs model-generated text.
+ */
+export async function aiGenerate(
+  userPrompt: string,
+  options?: {
+    systemPrompt?: string;
+    model?: OpenRouterModel;
+    temperature?: number;
+    maxTokens?: number;
+  }
+): Promise<{ text: string } | { error: string }> {
+  try {
+    const text = await generate(userPrompt, options);
+    return { text };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "AI generation failed",
+    };
+  }
+}
+
+/**
+ * Full control: chat completion with multiple messages.
+ */
+export async function aiChat(
+  messages: ChatMessage[],
+  options?: {
+    model?: OpenRouterModel;
+    temperature?: number;
+    maxTokens?: number;
+  }
+): Promise<{ content: string } | { error: string }> {
+  try {
+    const result = await chatCompletion({
+      messages,
+      model: options?.model,
+      temperature: options?.temperature,
+      maxTokens: options?.maxTokens,
+    });
+    return { content: result.content };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : "AI chat failed",
+    };
+  }
+}
 
 export async function submitFeedback(formData: FormData) {
   const name = formData.get("name")?.toString()?.trim();
@@ -34,6 +91,73 @@ export async function submitFeedback(formData: FormData) {
   }
 }
 
+function isPlaceholderImage(url: string | null | undefined): boolean {
+  if (!url?.trim()) return true;
+  return url.includes("placehold.co");
+}
+
+async function ensureProductImageUrl(
+  productId: string,
+  title: string,
+  category?: string | null,
+  currentUrl?: string | null
+): Promise<string | null> {
+  if (!isPlaceholderImage(currentUrl)) return currentUrl ?? null;
+
+  const { data: row } = await supabase
+    .from("products")
+    .select("image_url")
+    .eq("id", productId)
+    .single();
+  const existing = row?.image_url?.toString()?.trim();
+  if (existing && !isPlaceholderImage(existing)) return existing;
+
+  const searchQuery = `${title}${category ? ` ${category}` : ""} product`;
+  const imageUrl = await searchProductImage(searchQuery);
+  if (!imageUrl) return currentUrl ?? null;
+
+  await supabase
+    .from("products")
+    .update({ image_url: imageUrl })
+    .eq("id", productId);
+
+  return imageUrl;
+}
+
+async function ensureProductDescription(
+  productId: string,
+  title: string,
+  category?: string | null
+): Promise<string | null> {
+  const { data: row } = await supabase
+    .from("products")
+    .select("description")
+    .eq("id", productId)
+    .single();
+  const existing = row?.description?.toString()?.trim();
+  if (existing) return existing;
+
+  const result = await generate(
+    `Write a 3-4 sentence product description for: "${title}"${category ? ` (category: ${category})` : ""}. Be informative and highlight key features. Do not include price.`,
+    {
+      systemPrompt:
+        "You are a concise product copywriter. Write 3-4 sentences only. No bullet points.",
+      temperature: 0.5,
+      maxTokens: 200,
+    }
+  );
+
+  const generated = result?.trim();
+  if (!generated) return null;
+
+  await supabase
+    .from("products")
+    .update({ description: generated })
+    .eq("id", productId);
+
+  return generated;
+}
+
 export async function getProductById(id: string) {
   const { data: product, error: productError } = await supabase
     .from("products")
@@ -56,8 +180,22 @@ export async function getProductById(id: string) {
     .select("*")
     .eq("product_id", product.id);
 
+  const description =
+    product.description?.trim() ??
+    (await ensureProductDescription(product.id, product.title ?? "", product.category));
+
+  const imageUrl =
+    (await ensureProductImageUrl(
+      product.id,
+      product.title ?? "",
+      product.category,
+      product.image_url
+    )) ?? product.image_url;
+
   return {
     ...product,
+    description: description ?? product.description,
+    image_url: imageUrl ?? product.image_url,
     price_history: priceHistory ?? [],
     ai_insights: aiInsights ?? [],
   };
@@ -161,6 +299,95 @@ export async function searchProducts(query: string) {
     ai_score: mockProducts[i].ai_score,
     ai_summary: mockProducts[i].ai_summary,
   }));
+}
+
+export type SearchSort =
+  | "date"
+  | "price-asc"
+  | "price-desc"
+  | "score"
+  | "recommended"
+  | "alphabetical";
+
+export async function searchProductsFiltered(
+  query: string,
+  options: {
+    category?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    minScore?: number;
+    maxScore?: number;
+    sort?: SearchSort;
+  } = {}
+) {
+  const products = await searchProducts(query);
+  const {
+    category,
+    minPrice,
+    maxPrice,
+    minScore,
+    maxScore,
+    sort = "recommended",
+  } = options;
+
+  let filtered = products;
+
+  if (category) {
+    filtered = filtered.filter(
+      (p) => p.category?.toLowerCase() === category.toLowerCase()
+    );
+  }
+  if (minPrice != null) {
+    filtered = filtered.filter(
+      (p) => Number(p.current_price) >= minPrice
+    );
+  }
+  if (maxPrice != null) {
+    filtered = filtered.filter(
+      (p) => Number(p.current_price) <= maxPrice
+    );
+  }
+  if (minScore != null) {
+    filtered = filtered.filter((p) => {
+      const s = p.ai_score ?? 0;
+      return s >= minScore;
+    });
+  }
+  if (maxScore != null) {
+    filtered = filtered.filter((p) => {
+      const s = p.ai_score ?? 0;
+      return s <= maxScore;
+    });
+  }
+
+  const sorted = [...filtered];
+  if (sort === "date") {
+    sorted.sort(
+      (a, b) =>
+        new Date(b.created_at ?? 0).getTime() -
+        new Date(a.created_at ?? 0).getTime()
+    );
+  } else if (sort === "price-asc") {
+    sorted.sort(
+      (a, b) => Number(a.current_price) - Number(b.current_price)
+    );
+  } else if (sort === "price-desc") {
+    sorted.sort(
+      (a, b) => Number(b.current_price) - Number(a.current_price)
+    );
+  } else if (sort === "score" || sort === "recommended") {
+    sorted.sort((a, b) => {
+      const sa = a.ai_score ?? 0;
+      const sb = b.ai_score ?? 0;
+      return sb - sa;
+    });
+  } else if (sort === "alphabetical") {
+    sorted.sort((a, b) =>
+      (a.title ?? "").localeCompare(b.title ?? "")
+    );
+  }
+
+  return sorted;
 }
 
 export async function getBestDeals(limit = 12) {

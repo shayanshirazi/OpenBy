@@ -24,7 +24,7 @@ export function Navbar() {
   if (!isVisible) return null;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/20 bg-white/10 shadow-sm backdrop-blur-3xl transition-opacity duration-300">
+    <header className="sticky top-0 z-50 border-b border-white/20 bg-gradient-to-r from-violet-400/4 via-purple-400/3 to-fuchsia-400/4 shadow-sm backdrop-blur-3xl transition-opacity duration-300">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-6">
         {/* Left: Logo */}
         <Link

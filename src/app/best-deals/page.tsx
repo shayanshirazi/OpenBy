@@ -70,7 +70,7 @@ export default async function BestDealsPage({ searchParams }: BestDealsPageProps
                           ${Number(product.current_price).toFixed(2)}
                         </p>
                         <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm">
-                          AI Score: {product.ai_score ?? "—"}
+                          OpenBy Index: {product.ai_score ?? "—"}
                         </Badge>
                       </div>
                     </CardContent>

@@ -76,11 +76,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="lg:col-span-2">
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-zinc-100 shadow-lg">
                 <Image
-                  src={product.image_url ?? "https://placehold.co/400"}
-                  alt={product.title}
+                  src={product.image_url ?? "https://placehold.co/600"}
+                  alt={product.title ?? "Product"}
                   fill
-                  unoptimized
-                  className="object-contain p-8"
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 50vw"
                   priority
                 />
               </div>
@@ -92,14 +92,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
                   {product.title}
                 </h1>
-                <p className="mt-2 text-3xl font-bold text-zinc-900">
+                {product.description && (
+                  <p className="mt-3 text-zinc-600 leading-relaxed">
+                    {product.description}
+                  </p>
+                )}
+                <p className="mt-4 text-3xl font-bold text-zinc-900">
                   ${Number(product.current_price).toFixed(2)}
                 </p>
               </div>
 
               <div className="flex items-center gap-4">
                 <div className="rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2 text-white shadow-md">
-                  <span className="text-xs font-medium opacity-90">AI Score</span>
+                  <span className="text-xs font-medium opacity-90">OpenBy Index</span>
                   <p className="text-2xl font-bold">{aiScore ?? "—"}</p>
                 </div>
                 {product.category && (
@@ -149,7 +154,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 Related Products & Best Deals
               </h2>
               <p className="mt-2 text-zinc-600">
-                Similar products with top AI buy scores
+                Similar products with top OpenBy Index
               </p>
             </div>
             <BestDealsSlideshow products={relatedProducts} />
@@ -198,7 +203,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <div className="mt-8 text-center">
             <Link
               href="/categories"
-              className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 font-semibold text-white transition-colors hover:bg-zinc-800"
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-400/80 via-purple-400/75 to-fuchsia-400/80 px-6 py-3 font-semibold text-white backdrop-blur-md border border-white/30 shadow-lg shadow-violet-500/25 transition-all hover:from-violet-400 hover:via-purple-400 hover:to-fuchsia-400 hover:border-white/40 hover:shadow-violet-500/30"
             >
               View All Categories
               <ArrowRight className="h-5 w-5" />

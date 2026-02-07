@@ -97,7 +97,7 @@ export default async function CategoriesPage() {
               Best Deals Right Now
             </h2>
             <p className="mt-3 text-zinc-600">
-              AI-recommended products with the best buy scores
+              Products with the best OpenBy Index
             </p>
           </div>
           {bestDeals.length > 0 ? (
@@ -155,7 +155,7 @@ export default async function CategoriesPage() {
                           ${Number(product.current_price).toFixed(2)}
                         </p>
                         <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm">
-                          AI Score: {product.ai_score ?? "—"}
+                          OpenBy Index: {product.ai_score ?? "—"}
                         </Badge>
                       </div>
                     </CardContent>

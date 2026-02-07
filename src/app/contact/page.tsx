@@ -45,7 +45,7 @@ export default function ContactPage() {
             </p>
             <p>
               We&apos;re building a fairer shopping experience. By tracking prices
-              across categories and surfacing the best deals with clear AI scores,
+              across categories and surfacing the best deals with clear OpenBy Index,
               we help you make informed decisions. Your feedback drives what we
               build next, so please reach out. We read every message.
             </p>
@@ -172,7 +172,7 @@ export default function ContactPage() {
           </p>
           <Link
             href="/"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-6 py-3 font-semibold text-white transition-colors hover:bg-zinc-800"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-400/80 via-purple-400/75 to-fuchsia-400/80 px-6 py-3 font-semibold text-white backdrop-blur-md border border-white/30 shadow-lg shadow-violet-500/25 transition-all hover:from-violet-400 hover:via-purple-400 hover:to-fuchsia-400 hover:border-white/40 hover:shadow-violet-500/30"
           >
             Start Searching
             <ArrowRight className="h-5 w-5" />

@@ -59,7 +59,7 @@ export default function TermsOfServicePage() {
             <ul>
               <li>Product search and discovery across technology categories</li>
               <li>Historical price tracking and price trend visualization</li>
-              <li>AI-generated buy scores and recommendations</li>
+              <li>AI-generated OpenBy Index and recommendations</li>
               <li>Category browsing and best deals identification</li>
               <li>Access to product information aggregated from third-party sources</li>
             </ul>
@@ -186,7 +186,7 @@ export default function TermsOfServicePage() {
               error-free, secure, or free of viruses or other harmful
               components. We do not warrant the accuracy, reliability, or
               completeness of any content, including price data, product
-              information, or AI-generated recommendations. Our AI scores and
+              information, or AI-generated recommendations. Our OpenBy Index and
               buy recommendations are provided for informational purposes only
               and should not be construed as financial, investment, or
               professional advice.

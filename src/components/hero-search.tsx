@@ -1,16 +1,16 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
-import Link from "next/link";
-import { ChevronDown, Search, Laptop, Monitor, Smartphone, Headphones, Sparkles } from "lucide-react";
+import { ChevronDown, Search, Laptop, Monitor, Smartphone, Headphones, Sparkles, Tablet } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 const FLOATING_ICONS = [
-  { Icon: Laptop, x: "15%", y: "25%", size: 28 },
-  { Icon: Monitor, x: "85%", y: "25%", size: 28 },
-  { Icon: Smartphone, x: "10%", y: "75%", size: 24 },
-  { Icon: Headphones, x: "88%", y: "70%", size: 24 },
-  { Icon: Sparkles, x: "50%", y: "15%", size: 20 },
+  { Icon: Laptop, x: "12%", y: "22%", size: 26 },
+  { Icon: Monitor, x: "88%", y: "22%", size: 26 },
+  { Icon: Smartphone, x: "8%", y: "78%", size: 22 },
+  { Icon: Headphones, x: "90%", y: "72%", size: 22 },
+  { Icon: Tablet, x: "25%", y: "75%", size: 22 },
+  { Icon: Sparkles, x: "75%", y: "15%", size: 20 },
 ];
 
 export function HeroSearch() {
@@ -40,8 +40,8 @@ export function HeroSearch() {
   useEffect(() => {
     const animate = () => {
       setMouse((prev) => ({
-        x: prev.x + (targetRef.current.x - prev.x) * 0.14,
-        y: prev.y + (targetRef.current.y - prev.y) * 0.14,
+        x: prev.x + (targetRef.current.x - prev.x) * 0.12,
+        y: prev.y + (targetRef.current.y - prev.y) * 0.12,
       }));
       rafRef.current = requestAnimationFrame(animate);
     };
@@ -49,8 +49,8 @@ export function HeroSearch() {
     return () => rafRef.current && cancelAnimationFrame(rafRef.current);
   }, []);
 
-  const cursorX = (mouse.x - 0.5) * 40;
-  const cursorY = (mouse.y - 0.5) * 40;
+  const cursorX = (mouse.x - 0.5) * 36;
+  const cursorY = (mouse.y - 0.5) * 36;
 
   return (
     <section
@@ -62,34 +62,34 @@ export function HeroSearch() {
       {/* Base mesh gradient background */}
       <div className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,#eff6ff_0%,#e0e7ff_25%,#e0f2fe_50%,#f0f9ff_75%,#eef2ff_100%)]" />
 
-      {/* Animated mesh orbs */}
+      {/* Cursor-reactive gradient orbs - no blur for perf */}
       <div
-        className="absolute -z-10 h-[600px] w-[600px] rounded-full opacity-60 blur-[120px] transition-transform duration-700"
+        className="absolute -z-10 h-[450px] w-[450px] rounded-full opacity-50 transition-transform duration-150"
         style={{
           left: "10%",
           top: "15%",
           background:
-            "radial-gradient(circle, rgba(59,130,246,0.55) 0%, rgba(99,102,241,0.3) 40%, transparent 70%)",
-          transform: `translate(${cursorX * 0.5}px, ${cursorY * 0.5}px)`,
+            "radial-gradient(circle, rgba(59,130,246,0.45) 0%, rgba(99,102,241,0.2) 50%, transparent 70%)",
+          transform: `translate(${cursorX * 0.4}px, ${cursorY * 0.4}px)`,
         }}
       />
       <div
-        className="absolute -z-10 h-[500px] w-[500px] rounded-full opacity-50 blur-[100px] transition-transform duration-700"
+        className="absolute -z-10 h-[350px] w-[350px] rounded-full opacity-40 transition-transform duration-150"
         style={{
           right: "5%",
-          bottom: "20%",
+          bottom: "22%",
           background:
-            "radial-gradient(circle, rgba(168,85,247,0.5) 0%, rgba(59,130,246,0.25) 50%, transparent 70%)",
+            "radial-gradient(circle, rgba(168,85,247,0.4) 0%, rgba(59,130,246,0.15) 50%, transparent 70%)",
           transform: `translate(${-cursorX * 0.3}px, ${-cursorY * 0.3}px)`,
         }}
       />
       <div
-        className="absolute -z-10 h-[400px] w-[400px] rounded-full opacity-45 blur-[80px] transition-transform duration-700"
+        className="absolute -z-10 h-[280px] w-[280px] rounded-full opacity-35 transition-transform duration-150"
         style={{
           left: "50%",
-          bottom: "10%",
+          bottom: "12%",
           background:
-            "radial-gradient(circle, rgba(34,211,238,0.45) 0%, rgba(59,130,246,0.2) 50%, transparent 70%)",
+            "radial-gradient(circle, rgba(34,211,238,0.4) 0%, rgba(59,130,246,0.15) 50%, transparent 70%)",
           transform: `translate(calc(-50% + ${cursorX * 0.2}px), ${cursorY * 0.2}px)`,
         }}
       />
@@ -103,49 +103,32 @@ export function HeroSearch() {
         }}
       />
 
-      {/* Subtle noise texture overlay */}
-      <div
-        className="absolute inset-0 -z-10 opacity-[0.03]"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-        }}
-      />
-
       {/* Cursor spotlight glow */}
       <div
-        className="pointer-events-none absolute -z-10 h-[500px] w-[500px] rounded-full blur-3xl transition-opacity duration-300"
+        className="pointer-events-none absolute -z-10 h-[420px] w-[420px] rounded-full blur-2xl transition-opacity duration-300"
         style={{
           left: `${mouse.x * 100}%`,
           top: `${mouse.y * 100}%`,
           transform: "translate(-50%, -50%)",
-          opacity: isHovering ? 1 : 0,
+          opacity: isHovering ? 0.9 : 0,
           background:
-            "radial-gradient(circle, rgba(59,130,246,0.4) 0%, rgba(99,102,241,0.22) 35%, rgba(168,85,247,0.08) 55%, transparent 70%)",
+            "radial-gradient(circle, rgba(59,130,246,0.35) 0%, rgba(99,102,241,0.18) 40%, transparent 70%)",
         }}
       />
 
-      {/* Floating cursor-reactive icons */}
-      {FLOATING_ICONS.map(({ Icon, x, y, size }, i) => {
-        const intensity = 38 + (i % 4) * 12;
-        const dx = (mouse.x - 0.5) * intensity * (i % 2 === 0 ? 1 : -1);
-        const dy = (mouse.y - 0.5) * intensity * (i % 2 === 0 ? -1 : 1);
-        return (
-          <div
-            key={i}
-            className="absolute -z-10 rounded-2xl bg-white/60 p-3 shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-110 hover:bg-white/80 hover:shadow-xl"
-            style={{
-              left: x,
-              top: y,
-              transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`,
-            }}
-          >
-            <Icon
-              className="text-zinc-600/80 transition-colors hover:text-blue-600"
-              style={{ width: size, height: size }}
-            />
-          </div>
-        );
-      })}
+      {/* Static icons - fixed positions, no mouse movement */}
+      {FLOATING_ICONS.map(({ Icon, x, y, size }, i) => (
+        <div
+          key={i}
+          className="absolute -z-10 rounded-2xl bg-white/80 p-3 shadow-lg transition-transform duration-200 hover:scale-105 hover:shadow-xl"
+          style={{ left: x, top: y, transform: "translate(-50%, -50%)" }}
+        >
+          <Icon
+            className="text-zinc-600/80 transition-colors hover:text-blue-600"
+            style={{ width: size, height: size }}
+          />
+        </div>
+      ))}
 
       {/* Content */}
       <div className="relative z-10 flex w-full max-w-2xl flex-col items-center gap-10">

@@ -32,7 +32,7 @@ const FAQ_ITEMS = [
   {
     question: "Can I set up price alerts?",
     answer:
-      "Price alerts are on our roadmap! For now, bookmark products you're interested in and check back regularly. Our AI Score helps you know when it's a good time to buy at a glance.",
+      "Price alerts are on our roadmap! For now, bookmark products you're interested in and check back regularly. Our OpenBy Index helps you know when it's a good time to buy at a glance.",
   },
   {
     question: "Where does the data come from?",
@@ -103,7 +103,7 @@ export default async function Home() {
                           ${Number(product.current_price).toFixed(2)}
                         </p>
                         <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm">
-                          AI Score: {product.ai_score ?? "—"}
+                          OpenBy Index: {product.ai_score ?? "—"}
                         </Badge>
                       </div>
                     </CardContent>

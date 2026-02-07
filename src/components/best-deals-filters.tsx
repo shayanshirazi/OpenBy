@@ -5,7 +5,7 @@ import { useCallback } from "react";
 import { Input } from "@/components/ui/input";
 
 const SORT_OPTIONS = [
-  { value: "recommended", label: "Recommended (AI Score)" },
+  { value: "recommended", label: "Recommended (OpenBy Index)" },
   { value: "newest", label: "Newest" },
   { value: "price-low", label: "Price: Low to High" },
   { value: "price-high", label: "Price: High to Low" },
@@ -91,7 +91,7 @@ export function BestDealsFilters() {
         />
         <button
           type="submit"
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800"
+          className="rounded-xl bg-gradient-to-r from-violet-400/80 via-purple-400/75 to-fuchsia-400/80 px-4 py-2 text-sm font-medium text-white backdrop-blur-md border border-white/30 shadow-md shadow-violet-500/20 transition-all hover:from-violet-400 hover:via-purple-400 hover:to-fuchsia-400 hover:border-white/40"
         >
           Apply
         </button>
