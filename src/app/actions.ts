@@ -9,6 +9,7 @@ import {
   type OpenRouterModel,
   type ChatMessage,
 } from "@/lib/openrouter";
+import { getGoogleTrendsData, type GoogleTrendsResult } from "@/lib/google-trends";
 
 
 /**
@@ -139,6 +140,13 @@ Is today a good time to buy this product? Respond with a score from 1 to 10 (you
     claude: byKey.claude,
     llmScore,
   };
+}
+
+export async function getProductSearchTrends(
+  productName: string,
+  category?: string | null
+): Promise<GoogleTrendsResult> {
+  return getGoogleTrendsData(productName, category);
 }
 
 export async function submitFeedback(formData: FormData) {

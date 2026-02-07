@@ -15,10 +15,11 @@ import {
   Tv,
   ArrowRight,
 } from "lucide-react";
-import { getProductById, getRelatedProducts, getBestDeals, getLLMProductScores } from "@/app/actions";
+import { getProductById, getRelatedProducts, getBestDeals, getLLMProductScores, getProductSearchTrends } from "@/app/actions";
 import { BuySpectrum } from "@/components/buy-spectrum";
 import { BestDealsSlideshow } from "@/components/best-deals-slideshow";
 import { LLMScoreSection } from "@/components/llm-score-section";
+import { SearchTrendSection } from "@/components/search-trend-section";
 import { IndexBreakdownTable } from "@/components/index-breakdown-table";
 import { CATEGORIES } from "@/lib/categories";
 import {
@@ -56,7 +57,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const title = product.title ?? "";
   const description = product.description ?? "";
 
-  const { openai, gemini, claude, llmScore } = await getLLMProductScores(title, description);
+  const [{ openai, gemini, claude, llmScore }, searchTrendResult] = await Promise.all([
+    getLLMProductScores(title, description),
+    getProductSearchTrends(title, product.category),
+  ]);
+
+  const searchTrendScore = searchTrendResult.score;
 
   const breakdown = buildIndexBreakdown({
     llmScore,
@@ -66,7 +72,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     movingAverage: 100,
     volatility: 100,
     socialMediaPresence: 100,
-    searchTrend: 100,
+    searchTrend: searchTrendScore,
   });
 
   const openByIndex = calculateOpenByIndex(breakdown);
@@ -132,6 +138,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       {/* LLM Score Section */}
       <LLMScoreSection openai={openai} gemini={gemini} claude={claude} />
+
+      {/* Search Trend Section */}
+      <SearchTrendSection
+        score={searchTrendResult.score}
+        dataPoints={searchTrendResult.dataPoints}
+        error={searchTrendResult.error}
+      />
 
       {/* Related / Best Deals Slideshow */}
       {relatedProducts.length > 0 && (
