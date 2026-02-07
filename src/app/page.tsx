@@ -1,11 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getBestDeals } from "@/app/actions";
 import { CategorySlideshow } from "@/components/category-slideshow";
 import { HeroSearch } from "@/components/hero-search";
+import { FAQSection } from "@/components/faq-section";
 import { CATEGORIES } from "@/lib/categories";
 
 const FAQ_ITEMS = [
@@ -139,26 +139,7 @@ export default async function Home() {
               Everything you need to know about OpenBy
             </p>
           </div>
-          <div className="space-y-3">
-            {FAQ_ITEMS.map(({ question, answer }) => (
-              <details
-                key={question}
-                className="group faq-details rounded-xl border border-zinc-200/80 bg-white shadow-sm transition-all duration-300 [&[open]]:shadow-md [&[open]]:ring-1 [&[open]]:ring-blue-500/10"
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 font-medium text-zinc-900 transition-colors duration-200 [&::-webkit-details-marker]:hidden hover:text-zinc-700">
-                  {question}
-                  <ChevronDown className="h-5 w-5 shrink-0 text-zinc-400 transition-transform duration-300 ease-out group-open:rotate-180" />
-                </summary>
-                <div className="faq-content-wrapper">
-                  <div className="faq-content-inner">
-                    <div className="border-t border-zinc-100 px-6 py-5 text-zinc-600 leading-relaxed">
-                      {answer}
-                    </div>
-                  </div>
-                </div>
-              </details>
-            ))}
-          </div>
+          <FAQSection items={FAQ_ITEMS} />
         </div>
       </section>
     </div>

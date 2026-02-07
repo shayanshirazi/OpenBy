@@ -155,19 +155,6 @@
   transform: scale(1.1);
 }
 
-/* FAQ dropdown smooth expand/collapse */
-.faq-content-wrapper {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.faq-details[open] .faq-content-wrapper {
-  grid-template-rows: 1fr;
-}
-.faq-content-inner {
-  overflow: hidden;
-}
-
 /* Smooth scroll-down animation for hero */
 @keyframes scroll-down {
   0%, 100% {
