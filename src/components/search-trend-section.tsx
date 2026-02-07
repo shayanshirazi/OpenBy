@@ -10,19 +10,24 @@ import {
   Tooltip,
 } from "recharts";
 import type { TrendDataPoint } from "@/lib/google-trends";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, ExternalLink } from "lucide-react";
 
 type SearchTrendSectionProps = {
   score: number;
   dataPoints: TrendDataPoint[];
   error?: string;
+  keywordUsed?: string;
 };
 
 export function SearchTrendSection({
   score,
   dataPoints,
   error,
+  keywordUsed,
 }: SearchTrendSectionProps) {
+  const trendsUrl = keywordUsed
+    ? `https://trends.google.com/trends/explore?date=today%201-m&geo=US&q=${encodeURIComponent(keywordUsed)}`
+    : "https://trends.google.com/trends/explore";
   const chartData = dataPoints.map((d) => ({
     date: d.formattedTime || d.date,
     value: d.value,
@@ -30,10 +35,10 @@ export function SearchTrendSection({
 
   const scoreColor =
     score >= 70
-      ? "from-emerald-500/90 to-teal-500/90"
+      ? "bg-emerald-100 text-emerald-700"
       : score >= 40
-        ? "from-amber-500/90 to-orange-500/90"
-        : "from-rose-500/90 to-pink-500/90";
+        ? "bg-amber-100 text-amber-700"
+        : "bg-rose-100 text-rose-700";
 
   return (
     <section className="relative overflow-hidden border-b border-zinc-200/80 py-16">
@@ -53,7 +58,7 @@ export function SearchTrendSection({
               Search Trend
             </h2>
             <p className="mt-1.5 max-w-xl text-zinc-600">
-              Google search interest over the past 3 months. We adjust for
+              Google search interest over the past month. We adjust for
               baseline to avoid inflated scores and factor this into the OpenBy
               Index.
             </p>
@@ -66,13 +71,11 @@ export function SearchTrendSection({
             <span className="text-sm font-medium text-zinc-500">
               Search Trend Score
             </span>
-            <div
-              className={`flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br ${scoreColor} shadow-lg shadow-black/5`}
+            <span
+              className={`inline-flex min-w-[4rem] items-center justify-center rounded-xl px-4 py-3 text-2xl font-bold ${scoreColor}`}
             >
-              <span className="text-3xl font-bold text-white drop-shadow-sm">
-                {score}
-              </span>
-            </div>
+              {score}
+            </span>
             {error && (
               <p className="text-center text-xs text-amber-600">
                 Using neutral (fetch failed)
@@ -150,6 +153,25 @@ export function SearchTrendSection({
               </div>
             )}
           </div>
+        </div>
+
+        {/* Source link */}
+        <div className="mt-6 flex justify-end">
+          <a
+            href={trendsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-indigo-600"
+            title={keywordUsed ? `View "${keywordUsed}" on Google Trends` : "View Google Trends"}
+          >
+            Source: Google Trends
+            {keywordUsed && (
+              <span className="max-w-[10rem] truncate text-zinc-400" title={keywordUsed}>
+                ({keywordUsed})
+              </span>
+            )}
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+          </a>
         </div>
       </div>
     </section>

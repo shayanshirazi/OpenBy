@@ -15,11 +15,12 @@ import {
   Tv,
   ArrowRight,
 } from "lucide-react";
-import { getProductById, getRelatedProducts, getBestDeals, getLLMProductScores, getProductSearchTrends } from "@/app/actions";
+import { getProductById, getRelatedProducts, getBestDeals, getLLMProductScores, getProductSearchTrends, getCanadaInflation } from "@/app/actions";
 import { BuySpectrum } from "@/components/buy-spectrum";
 import { BestDealsSlideshow } from "@/components/best-deals-slideshow";
 import { LLMScoreSection } from "@/components/llm-score-section";
 import { SearchTrendSection } from "@/components/search-trend-section";
+import { InflationScoreSection } from "@/components/inflation-score-section";
 import { IndexBreakdownTable } from "@/components/index-breakdown-table";
 import { CATEGORIES } from "@/lib/categories";
 import {
@@ -57,9 +58,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const title = product.title ?? "";
   const description = product.description ?? "";
 
-  const [{ openai, gemini, claude, llmScore }, searchTrendResult] = await Promise.all([
+  const [{ openai, gemini, claude, llmScore }, searchTrendResult, inflationResult] = await Promise.all([
     getLLMProductScores(title, description),
     getProductSearchTrends(title, product.category),
+    getCanadaInflation(),
   ]);
 
   const searchTrendScore = searchTrendResult.score;
@@ -67,7 +69,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const breakdown = buildIndexBreakdown({
     llmScore,
     relatedNews: 100,
-    inflationScore: 100,
+    inflationScore: inflationResult.score,
     predictedPrice: 100,
     movingAverage: 100,
     volatility: 100,
@@ -139,11 +141,20 @@ export default async function ProductPage({ params }: ProductPageProps) {
       {/* LLM Score Section */}
       <LLMScoreSection openai={openai} gemini={gemini} claude={claude} />
 
+      {/* Inflation Score Section */}
+      <InflationScoreSection
+        score={inflationResult.score}
+        latestValue={inflationResult.latestValue}
+        dataPoints={inflationResult.dataPoints}
+        error={inflationResult.error}
+      />
+
       {/* Search Trend Section */}
       <SearchTrendSection
         score={searchTrendResult.score}
         dataPoints={searchTrendResult.dataPoints}
         error={searchTrendResult.error}
+        keywordUsed={searchTrendResult.keywordUsed}
       />
 
       {/* Related / Best Deals Slideshow */}

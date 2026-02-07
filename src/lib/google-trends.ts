@@ -3,11 +3,17 @@
  * Uses google-trends-api for interest over time.
  */
 
+import https from "https";
 import googleTrends from "google-trends-api";
 import { CATEGORIES } from "@/lib/categories";
 
-const REQUEST_TIMEOUT_MS = 15_000;
+const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
+
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 4,
+});
 /** Offset applied to all trend values so scores don't appear inflated */
 const TREND_OFFSET = 15;
 
@@ -38,26 +44,93 @@ function getCategoryTrendKeyword(category: string | null | undefined): string | 
 function extractBrand(title: string): string | null {
   const first = title.trim().split(/\s+/)[0];
   if (!first || first.length < 2) return null;
-  // Skip if it looks like a number or model (e.g. "27", "4K")
   if (/^\d|^\d+"/.test(first)) return null;
-  // Common brands are capitalized
   if (first[0] === first[0]?.toUpperCase() && first.length <= 15) return first;
   return null;
 }
 
-/** Extract a descriptive phrase (2–3 words) from product title, avoiding model numbers */
-function getShortPhrase(title: string): string {
-  const words = title
-    .replace(/\([^)]*\)/g, "")
+/** Known descriptor/feature words that combine well with product types for Trends */
+const DESCRIPTOR_WORDS = new Set([
+  "wireless", "bluetooth", "mechanical", "noise", "cancelling", "canceling",
+  "4k", "uhd", "ips", "oled", "qled", "gaming", "portable", "compact",
+  "rgb", "led", "smart", "premium", "pro", "mini", "ultra", "max",
+  "external", "internal", "wireless", "noise-cancelling", "noise-canceling",
+  "gaming", "mechanical", "wireless", "smart", "curved", "flat",
+]);
+
+/** Product-type words often found in titles */
+const PRODUCT_TYPE_WORDS = new Set([
+  "keyboard", "keyboards", "headphones", "headphone", "earbuds", "earbud",
+  "monitor", "monitors", "laptop", "laptops", "phone", "phones", "smartphone",
+  "tablet", "tablets", "camera", "cameras", "watch", "watches", "smartwatch",
+  "speaker", "speakers", "mouse", "ssd", "drive", "drives", "tv", "tvs",
+  "gpu", "cpu", "ram", "motherboard", "controller", "headset", "webcam",
+]);
+
+/** Extract descriptor + product-type phrases from title (e.g. "wireless mechanical keyboard") */
+function extractDescriptorPhrases(title: string, categoryKeyword: string | null): string[] {
+  const lower = title.toLowerCase().replace(/\([^)]*\)/g, "");
+  const words = lower
     .replace(/[\d."]+/g, " ")
     .split(/\s+/)
+    .filter((w) => w.length >= 2 && !/^\d+$/.test(w) && !/^[a-z]\d$/i.test(w));
+
+  const descriptors: string[] = [];
+  const productTypes: string[] = [];
+
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    const next = words[i + 1];
+    const twoWord = next ? `${w} ${next}` : w;
+
+    if (["noise cancelling", "noise canceling"].includes(twoWord)) {
+      descriptors.push("noise cancelling");
+      i++;
+      continue;
+    }
+    if (DESCRIPTOR_WORDS.has(w)) {
+      descriptors.push(w);
+    }
+    if (PRODUCT_TYPE_WORDS.has(w)) {
+      productTypes.push(w);
+    }
+  }
+
+  if (categoryKeyword && !productTypes.some((p) => p.includes(categoryKeyword) || categoryKeyword.includes(p))) {
+    productTypes.push(categoryKeyword);
+  }
+
+  const phrases: string[] = [];
+  const baseType = productTypes[0] ?? categoryKeyword;
+  if (baseType) {
+    phrases.push(baseType);
+    for (const d of descriptors.slice(0, 3)) {
+      phrases.push(`${d} ${baseType}`);
+    }
+    if (descriptors.length >= 2) {
+      phrases.push(`${descriptors.slice(0, 2).join(" ")} ${baseType}`);
+    }
+  }
+  return [...new Set(phrases)];
+}
+
+/** Get meaningful word sequences from product title */
+function getProductNameKeywords(productName: string): string[] {
+  const words = productName
+    .replace(/\([^)]*\)/g, "")
+    .split(/\s+/)
     .filter((w) => w.length > 1 && !/^\d+$/.test(w));
-  return words.slice(0, 3).join(" ").trim() || "electronics";
+  const result: string[] = [];
+  for (let n = 4; n >= 2; n--) {
+    const phrase = words.slice(0, n).join(" ").trim();
+    if (phrase.length >= 4) result.push(phrase);
+  }
+  return result;
 }
 
 /**
- * Build keyword candidates to try, from most specific to most generic.
- * Broader keywords return more reliable, higher-volume trend data.
+ * Build keyword candidates. Prioritize descriptor+type phrases (e.g. "wireless mechanical keyboard"),
+ * then brand+category, category, and product name variations.
  */
 function buildKeywordCandidates(
   productName: string,
@@ -66,34 +139,37 @@ function buildKeywordCandidates(
   const candidates: string[] = [];
   const catKeyword = getCategoryTrendKeyword(category);
   const brand = extractBrand(productName);
-  const shortPhrase = getShortPhrase(productName);
 
-  // 1. Category only – best volume, most reliable (e.g. "headphones", "monitor")
-  if (catKeyword) {
-    candidates.push(catKeyword);
+  // 1. Descriptor + product type (e.g. "wireless mechanical keyboard", "noise cancelling headphones")
+  const descriptorPhrases = extractDescriptorPhrases(productName, catKeyword ?? null);
+  for (const p of descriptorPhrases) {
+    if (p.length >= 4) candidates.push(p);
   }
-  // 2. Brand + category (e.g. "Sony headphones", "LG monitor")
+
+  // 2. Brand + category
   if (brand && catKeyword) {
     candidates.push(`${brand} ${catKeyword}`);
   }
-  // 3. Short phrase if meaningful (e.g. "noise cancelling headphones", "4K monitor")
-  if (shortPhrase.length >= 10 && shortPhrase !== "electronics") {
-    candidates.push(shortPhrase);
-  }
-  // 4. First 2–3 words of title, cleaned
-  const firstWords = productName
-    .replace(/\([^)]*\)/g, "")
-    .split(/\s+/)
-    .filter((w) => w.length > 1)
-    .slice(0, 3)
-    .join(" ");
-  if (firstWords.length >= 4) {
-    candidates.push(firstWords);
-  }
-  // 5. Fallback
-  candidates.push("electronics");
 
-  // Dedupe while preserving order
+  // 3. Category
+  if (catKeyword) {
+    candidates.push(catKeyword);
+  }
+
+  // 4. Product name phrases (2–4 words)
+  for (const kw of getProductNameKeywords(productName)) {
+    if (!candidates.includes(kw)) candidates.push(kw);
+  }
+
+  // 5. Brand + descriptor + type (e.g. "Keychron mechanical keyboard")
+  if (brand) {
+    for (const p of descriptorPhrases) {
+      if (p.length >= 4 && !candidates.includes(`${brand} ${p}`)) {
+        candidates.push(`${brand} ${p}`);
+      }
+    }
+  }
+
   return [...new Set(candidates)];
 }
 
@@ -118,28 +194,26 @@ async function fetchTrendsForKeyword(keyword: string): Promise<{
 }> {
   const endTime = new Date();
   const startTime = new Date();
-  startTime.setMonth(startTime.getMonth() - 3); // 3 months for more valid, less noisy data
+  startTime.setMonth(startTime.getMonth() - 1); // 1 month for faster, more reliable response
 
   const res = await googleTrends.interestOverTime({
     keyword,
     startTime,
     endTime,
     geo: "US",
+    agent: httpsAgent,
   });
 
-  const parsed = JSON.parse(res) as {
-    default?: {
-      timelineData?: Array<{
-        time: string;
-        formattedTime: string;
-        formattedAxisTime: string;
-        value?: (number | string)[];
-        formattedValue?: string[];
-      }>;
-    };
-  };
-
-  const timelineData = parsed?.default?.timelineData ?? [];
+  type TimelinePoint = { time: string; formattedTime: string; formattedAxisTime: string; value?: (number | string)[] };
+  let timelineData: TimelinePoint[] = [];
+  try {
+    const str = typeof res === "string" ? res : String(res);
+    const jsonStr = str.startsWith(")") || str.startsWith("<") ? str.slice(Math.max(str.indexOf("{"), 0)) : str;
+    const parsed = JSON.parse(jsonStr) as { default?: { timelineData?: TimelinePoint[] }; timelineData?: TimelinePoint[] };
+    timelineData = parsed?.default?.timelineData ?? parsed?.timelineData ?? [];
+  } catch {
+    return { dataPoints: [], score: 50 };
+  }
   const dataPoints: TrendDataPoint[] = [];
   let sum = 0;
   let count = 0;
@@ -165,7 +239,7 @@ async function fetchTrendsForKeyword(keyword: string): Promise<{
 }
 
 /**
- * Fetch Google Trends interest over time for the past 3 months.
+ * Fetch Google Trends interest over time for the past month.
  * Tries multiple keyword strategies and uses the best result.
  */
 export async function getGoogleTrendsData(
@@ -182,17 +256,8 @@ export async function getGoogleTrendsData(
           REQUEST_TIMEOUT_MS
         );
 
-        // Prefer results with enough data points
-        if (dataPoints.length >= 3) {
-          return {
-            score,
-            dataPoints,
-            keywordUsed: keyword,
-          };
-        }
-
-        // If we got some data but few points, still use it if score looks reasonable
-        if (dataPoints.length > 0 && score > 10) {
+        // Accept any result with at least 1 data point
+        if (dataPoints.length > 0) {
           return {
             score,
             dataPoints,
@@ -210,11 +275,11 @@ export async function getGoogleTrendsData(
     }
   }
 
-  // All keywords failed – return neutral default
+  // All keywords failed – return neutral default, no generic fallback used
   return {
     score: 50,
     dataPoints: [],
     error: "Could not fetch trend data. Using neutral score.",
-    keywordUsed: keywords[0],
+    keywordUsed: keywords.length > 0 ? keywords[0] : undefined,
   };
 }

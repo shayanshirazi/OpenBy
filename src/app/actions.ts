@@ -10,6 +10,7 @@ import {
   type ChatMessage,
 } from "@/lib/openrouter";
 import { getGoogleTrendsData, type GoogleTrendsResult } from "@/lib/google-trends";
+import { getCanadaInflationData, type CanadaInflationResult } from "@/lib/bank-of-canada";
 
 
 /**
@@ -140,6 +141,10 @@ Is today a good time to buy this product? Respond with a score from 1 to 10 (you
     claude: byKey.claude,
     llmScore,
   };
+}
+
+export async function getCanadaInflation(): Promise<CanadaInflationResult> {
+  return getCanadaInflationData();
 }
 
 export async function getProductSearchTrends(
