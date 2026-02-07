@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -16,11 +15,16 @@ import {
   Tv,
   ArrowRight,
 } from "lucide-react";
-import { getProductById, getRelatedProducts, getBestDeals } from "@/app/actions";
+import { getProductById, getRelatedProducts, getBestDeals, getLLMProductScores } from "@/app/actions";
 import { BuySpectrum } from "@/components/buy-spectrum";
-import { ProductDataCharts } from "@/components/product-data-charts";
 import { BestDealsSlideshow } from "@/components/best-deals-slideshow";
+import { LLMScoreSection } from "@/components/llm-score-section";
+import { IndexBreakdownTable } from "@/components/index-breakdown-table";
 import { CATEGORIES } from "@/lib/categories";
+import {
+  buildIndexBreakdown,
+  calculateOpenByIndex,
+} from "@/lib/openby-index";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   laptop: Laptop,
@@ -49,16 +53,23 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
-  const aiInsight = product.ai_insights?.[0];
-  const aiScore = (aiInsight as { score?: number })?.score ?? null;
-  const aiRecommendation = aiInsight?.summary ?? product.ai_summary ?? "No AI recommendation available.";
+  const title = product.title ?? "";
+  const description = product.description ?? "";
 
-  const priceHistoryData = (product.price_history ?? []).map(
-    (ph: { price: number; date: string }) => ({
-      price: ph.price,
-      date: ph.date,
-    })
-  );
+  const { openai, gemini, claude, llmScore } = await getLLMProductScores(title, description);
+
+  const breakdown = buildIndexBreakdown({
+    llmScore,
+    relatedNews: 100,
+    inflationScore: 100,
+    predictedPrice: 100,
+    movingAverage: 100,
+    volatility: 100,
+    socialMediaPresence: 100,
+    searchTrend: 100,
+  });
+
+  const openByIndex = calculateOpenByIndex(breakdown);
 
   let relatedProducts = await getRelatedProducts(id, product.category, 12);
   if (relatedProducts.length === 0) {
@@ -67,7 +78,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="min-h-screen">
-      {/* Hero: Image, Name, Price, Score, Buy Spectrum */}
+      {/* Hero: Image, Name, Price, Score */}
       <div className="relative border-b border-zinc-200/80 bg-gradient-to-b from-blue-50/50 via-indigo-50/20 to-white">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_20%_30%,rgba(59,130,246,0.2),rgba(99,102,241,0.1),transparent_60%)]" />
         <div className="relative mx-auto max-w-6xl px-6 py-12">
@@ -75,27 +86,24 @@ export default async function ProductPage({ params }: ProductPageProps) {
             {/* Image */}
             <div className="lg:col-span-2">
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-zinc-100 shadow-lg">
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={product.image_url ?? "https://placehold.co/600"}
                   alt={product.title ?? "Product"}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  priority
+                  className="h-full w-full object-cover"
+                  loading="eager"
                 />
               </div>
             </div>
 
-            {/* Title, Price, Score, Spectrum */}
+            {/* Title, Price, Score */}
             <div className="flex flex-col gap-6 lg:col-span-3">
               <div>
                 <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
                   {product.title}
                 </h1>
-                {product.description && (
-                  <p className="mt-3 text-zinc-600 leading-relaxed">
-                    {product.description}
-                  </p>
+                {description && (
+                  <p className="mt-3 text-zinc-600 leading-relaxed">{description}</p>
                 )}
                 <p className="mt-4 text-3xl font-bold text-zinc-900">
                   ${Number(product.current_price).toFixed(2)}
@@ -105,7 +113,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <div className="flex items-center gap-4">
                 <div className="rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2 text-white shadow-md">
                   <span className="text-xs font-medium opacity-90">OpenBy Index</span>
-                  <p className="text-2xl font-bold">{aiScore ?? "—"}</p>
+                  <p className="text-2xl font-bold">{openByIndex}</p>
                 </div>
                 {product.category && (
                   <span className="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-700">
@@ -114,35 +122,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 )}
               </div>
 
-              <BuySpectrum score={aiScore} label="Buy Now Recommendation" />
+              <BuySpectrum score={openByIndex} label="Buy Now Recommendation" />
 
-              <div className="rounded-xl border border-zinc-200 bg-white p-4">
-                <p className="text-sm font-medium text-zinc-500">AI Insight</p>
-                <p className="mt-2 text-zinc-700">{aiRecommendation}</p>
-              </div>
+              <IndexBreakdownTable breakdown={breakdown} totalScore={openByIndex} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* DATA Section */}
-      <section className="relative border-b border-zinc-200/80 bg-gradient-to-b from-white to-blue-50/40 py-16">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_100%_60%_at_50%_50%,rgba(99,102,241,0.16),rgba(59,130,246,0.1),transparent_60%)]" />
-        <div className="relative mx-auto max-w-6xl px-6">
-          <div className="mb-10">
-            <h2 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
-              Data & Analytics
-            </h2>
-            <p className="mt-2 text-zinc-600">
-              Price trends, market comparison, and historical analysis
-            </p>
-          </div>
-          <ProductDataCharts
-            priceHistory={priceHistoryData}
-            currentPrice={Number(product.current_price)}
-          />
-        </div>
-      </section>
+      {/* LLM Score Section */}
+      <LLMScoreSection openai={openai} gemini={gemini} claude={claude} />
 
       {/* Related / Best Deals Slideshow */}
       {relatedProducts.length > 0 && (

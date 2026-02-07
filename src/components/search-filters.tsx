@@ -50,9 +50,10 @@ export function SearchFilters({ query }: { query: string }) {
   }, [minScoreParam, maxScoreParam]);
 
   const updateParams = useCallback(
-    (updates: Record<string, string>) => {
+    (updates: Record<string, string>, resetPage = true) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("q", query);
+      if (resetPage) params.delete("page");
       Object.entries(updates).forEach(([k, v]) => {
         if (v) params.set(k, v);
         else params.delete(k);

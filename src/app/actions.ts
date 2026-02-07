@@ -2,7 +2,7 @@
 
 import { supabase } from "@/lib/supabase";
 import { mockSearchAmazon } from "@/lib/mock-amazon";
-import { searchProductImage } from "@/lib/pexels";
+import { searchGoogleImage } from "@/lib/google-images";
 import {
   generate,
   chatCompletion,
@@ -60,6 +60,87 @@ export async function aiChat(
   }
 }
 
+const LLM_BUY_PROMPT = `You are a product buying advisor. Given a product name and description, assess if TODAY is a good time to buy it.
+
+Your response MUST follow this exact format:
+- First line: A single number from 1 to 10 (1 = terrible time to buy today, 10 = excellent time to buy today). You may use decimals like 7.5 or 9.2. Nothing else on that line.
+- Second line: Empty
+- Following lines: 2-3 sentences explaining your assessment for today. Consider current price trends, seasonal factors, new product releases, and whether waiting would likely yield a better deal.`;
+
+export type LLMModelScore = {
+  score: number | null; // 1-10 scale
+  text: string;
+  error?: string;
+};
+
+export async function getLLMProductScores(
+  productName: string,
+  description: string
+): Promise<{
+  openai: LLMModelScore;
+  gemini: LLMModelScore;
+  claude: LLMModelScore;
+  llmScore: number; // 0-100 for index (score/10 * 100)
+}> {
+  const userPrompt = `Product: ${productName}
+
+Description: ${description || "No description available."}
+
+Is today a good time to buy this product? Respond with a score from 1 to 10 (you may use decimals like 9.6) on the first line, then 2-3 sentences of explanation.`;
+
+  const models = [
+    { key: "openai" as const, model: "openai/gpt-4o" as OpenRouterModel },
+    { key: "gemini" as const, model: "google/gemini-2.0-flash-001" as OpenRouterModel },
+    { key: "claude" as const, model: "anthropic/claude-3.5-sonnet" as OpenRouterModel },
+  ];
+
+  const results = await Promise.all(
+    models.map(async ({ key, model }) => {
+      try {
+        const content = await generate(userPrompt, {
+          systemPrompt: LLM_BUY_PROMPT,
+          model,
+          temperature: 0.4,
+          maxTokens: 300,
+        });
+        const lines = content.trim().split("\n").filter(Boolean);
+        const firstLine = lines[0] ?? "";
+        const scoreMatch = firstLine.match(/\b(\d{1,2}(?:\.\d+)?)\b/);
+        const raw = scoreMatch ? parseFloat(scoreMatch[1]) : null;
+        const score = raw != null ? Math.min(10, Math.max(1, raw)) : null;
+        const text = lines.slice(1).join(" ").trim() || content.trim();
+        return { key, score, text, error: undefined };
+      } catch (err) {
+        return {
+          key,
+          score: null,
+          text: "",
+          error: err instanceof Error ? err.message : "Failed",
+        };
+      }
+    })
+  );
+
+  const byKey = Object.fromEntries(
+    results.map((r) => [
+      r.key,
+      { score: r.score, text: r.text, ...(r.error && { error: r.error }) },
+    ])
+  );
+
+  const scores = results.filter((r) => r.score != null).map((r) => r.score!);
+  const avgOutOf10 =
+    scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 5;
+  const llmScore = Math.round((avgOutOf10 / 10) * 100);
+
+  return {
+    openai: byKey.openai,
+    gemini: byKey.gemini,
+    claude: byKey.claude,
+    llmScore,
+  };
+}
+
 export async function submitFeedback(formData: FormData) {
   const name = formData.get("name")?.toString()?.trim();
   const email = formData.get("email")?.toString()?.trim();
@@ -112,8 +193,7 @@ async function ensureProductImageUrl(
   const existing = row?.image_url?.toString()?.trim();
   if (existing && !isPlaceholderImage(existing)) return existing;
 
-  const searchQuery = `${title}${category ? ` ${category}` : ""} product`;
-  const imageUrl = await searchProductImage(searchQuery);
+  const imageUrl = await searchGoogleImage(title);
   if (!imageUrl) return currentUrl ?? null;
 
   await supabase
@@ -309,6 +389,8 @@ export type SearchSort =
   | "recommended"
   | "alphabetical";
 
+const PRODUCTS_PER_PAGE = 15;
+
 export async function searchProductsFiltered(
   query: string,
   options: {
@@ -318,6 +400,8 @@ export async function searchProductsFiltered(
     minScore?: number;
     maxScore?: number;
     sort?: SearchSort;
+    page?: number;
+    limit?: number;
   } = {}
 ) {
   const products = await searchProducts(query);
@@ -328,6 +412,8 @@ export async function searchProductsFiltered(
     minScore,
     maxScore,
     sort = "recommended",
+    page = 1,
+    limit = PRODUCTS_PER_PAGE,
   } = options;
 
   let filtered = products;
@@ -387,7 +473,13 @@ export async function searchProductsFiltered(
     );
   }
 
-  return sorted;
+  const totalCount = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+  const pageSafe = Math.max(1, Math.min(page, totalPages));
+  const start = (pageSafe - 1) * limit;
+  const paginated = sorted.slice(start, start + limit);
+
+  return { products: paginated, totalCount, totalPages, page: pageSafe };
 }
 
 export async function getBestDeals(limit = 12) {
@@ -409,59 +501,103 @@ export async function getBestDeals(limit = 12) {
   });
 }
 
-export type BestDealsSort = "recommended" | "newest" | "price-low" | "price-high";
+export type BestDealsSort =
+  | "recommended"
+  | "newest"
+  | "price-low"
+  | "price-high"
+  | "score"
+  | "alphabetical";
 
 export async function getBestDealsFiltered(options: {
   sort?: BestDealsSort;
   minPrice?: number;
   maxPrice?: number;
+  category?: string;
+  minScore?: number;
+  maxScore?: number;
+  page?: number;
   limit?: number;
 }) {
-  const { sort = "recommended", minPrice, maxPrice, limit = 48 } = options;
+  const {
+    sort = "recommended",
+    minPrice,
+    maxPrice,
+    category,
+    minScore,
+    maxScore,
+    page = 1,
+    limit = PRODUCTS_PER_PAGE,
+  } = options;
 
-  let query = supabase
+  const { data: products, error } = await supabase
     .from("products")
-    .select("id, title, current_price, image_url, created_at, ai_insights(score)");
+    .select("id, title, current_price, image_url, created_at, category")
+    .order("created_at", { ascending: false });
 
+  if (error) {
+    console.error("[getBestDealsFiltered]", error.message);
+    return { products: [], totalCount: 0, totalPages: 1, page: 1 };
+  }
+  if (!products || products.length === 0) {
+    return { products: [], totalCount: 0, totalPages: 1, page: 1 };
+  }
+
+  const { data: insights } = await supabase
+    .from("ai_insights")
+    .select("product_id, score")
+    .in("product_id", products.map((p) => p.id));
+  const scoreByProduct = new Map(
+    (insights ?? []).map((i) => [i.product_id, i.score as number])
+  );
+
+  let filtered = products.map((product) => ({
+    ...product,
+    ai_score: scoreByProduct.get(product.id) ?? null,
+  }));
+
+  if (category) {
+    filtered = filtered.filter(
+      (p) => p.category?.toLowerCase() === category.toLowerCase()
+    );
+  }
   if (minPrice != null) {
-    query = query.gte("current_price", minPrice);
+    filtered = filtered.filter((p) => Number(p.current_price) >= minPrice);
   }
   if (maxPrice != null) {
-    query = query.lte("current_price", maxPrice);
+    filtered = filtered.filter((p) => Number(p.current_price) <= maxPrice);
+  }
+  if (minScore != null) {
+    filtered = filtered.filter((p) => (p.ai_score ?? 0) >= minScore);
+  }
+  if (maxScore != null) {
+    filtered = filtered.filter((p) => (p.ai_score ?? 0) <= maxScore);
   }
 
+  const sorted = [...filtered];
   if (sort === "newest") {
-    query = query.order("created_at", { ascending: false });
+    sorted.sort(
+      (a, b) =>
+        new Date(b.created_at ?? 0).getTime() -
+        new Date(a.created_at ?? 0).getTime()
+    );
   } else if (sort === "price-low") {
-    query = query.order("current_price", { ascending: true });
+    sorted.sort((a, b) => Number(a.current_price) - Number(b.current_price));
   } else if (sort === "price-high") {
-    query = query.order("current_price", { ascending: false });
-  } else {
-    query = query.order("created_at", { ascending: false });
+    sorted.sort((a, b) => Number(b.current_price) - Number(a.current_price));
+  } else if (sort === "recommended" || sort === "score") {
+    sorted.sort((a, b) => (b.ai_score ?? 0) - (a.ai_score ?? 0));
+  } else if (sort === "alphabetical") {
+    sorted.sort((a, b) => (a.title ?? "").localeCompare(b.title ?? ""));
   }
 
-  const { data: products } = await query.limit(limit * 2);
+  const totalCount = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+  const pageSafe = Math.max(1, Math.min(page, totalPages));
+  const start = (pageSafe - 1) * limit;
+  const paginated = sorted.slice(start, start + limit);
 
-  if (!products) return [];
-
-  const withScore = products.map((product) => {
-    const aiInsights = product.ai_insights as { score: number }[] | null;
-    const score = aiInsights?.[0]?.score ?? null;
-    return {
-      ...product,
-      ai_score: score,
-    };
-  });
-
-  if (sort === "recommended") {
-    withScore.sort((a, b) => {
-      const scoreA = a.ai_score ?? 0;
-      const scoreB = b.ai_score ?? 0;
-      return scoreB - scoreA;
-    });
-  }
-
-  return withScore.slice(0, limit);
+  return { products: paginated, totalCount, totalPages, page: pageSafe };
 }
 
 export async function getRelatedProducts(
