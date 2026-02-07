@@ -13,6 +13,7 @@ import {
 import { TrendingDown, Info, ArrowUp, ArrowDown } from "lucide-react";
 
 type MovingAverageScoreSectionProps = {
+  id?: string;
   score: number;
   currentPrice: number;
   ma7: number | null;
@@ -29,6 +30,7 @@ type MovingAverageScoreSectionProps = {
 };
 
 export function MovingAverageScoreSection({
+  id,
   score,
   currentPrice,
   ma7,
@@ -60,7 +62,7 @@ export function MovingAverageScoreSection({
         : "bg-rose-100 text-rose-700";
 
   return (
-    <section className="relative overflow-hidden border-b border-zinc-200/80 py-16">
+    <section id={id} className="relative overflow-hidden border-b border-zinc-200/80 py-16">
       <div className="absolute inset-0 bg-gradient-to-b from-sky-50/50 via-white to-indigo-50/30" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_20%,rgba(14,165,233,0.06),transparent_70%)]" />
 
@@ -115,7 +117,8 @@ export function MovingAverageScoreSection({
               <span
                 className={`inline-flex min-w-[4rem] items-center justify-center rounded-xl px-4 py-3 text-2xl font-bold ${scoreColor}`}
               >
-                {score}
+                {(score / 10).toFixed(1)}
+                <span className="align-sub text-[0.5em] font-normal opacity-90">/10</span>
               </span>
               <span className="text-sm text-zinc-600">
                 Current: ${currentPrice.toFixed(2)}

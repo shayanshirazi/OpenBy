@@ -2,6 +2,7 @@ import Image from "next/image";
 import type { LLMModelScore } from "@/app/actions";
 
 type LLMScoreSectionProps = {
+  id?: string;
   openai: LLMModelScore;
   gemini: LLMModelScore;
   claude: LLMModelScore;
@@ -49,6 +50,7 @@ function ModelCard({
           className={`inline-flex min-w-[4.5rem] items-center justify-center rounded-lg px-3 py-2 text-xl font-bold ${scoreColor}`}
         >
           {displayScore}
+          {score != null && <span className="align-sub text-[0.55em] font-normal opacity-90">/10</span>}
         </span>
       </div>
       <div className="mt-4 flex-1">
@@ -62,9 +64,9 @@ function ModelCard({
   );
 }
 
-export function LLMScoreSection({ openai, gemini, claude }: LLMScoreSectionProps) {
+export function LLMScoreSection({ id, openai, gemini, claude }: LLMScoreSectionProps) {
   return (
-    <section className="relative border-b border-zinc-200/80 bg-gradient-to-b from-white to-blue-50/40 py-16">
+    <section id={id} className="relative border-b border-zinc-200/80 bg-gradient-to-b from-white to-blue-50/40 py-16">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_100%_60%_at_50%_50%,rgba(99,102,241,0.08),transparent_60%)]" />
       <div className="relative mx-auto max-w-6xl px-6">
         <div className="mb-10 text-center">

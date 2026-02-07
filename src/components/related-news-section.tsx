@@ -4,6 +4,7 @@ import type { NewsItem } from "@/lib/serpapi-news";
 import { Newspaper, ExternalLink } from "lucide-react";
 
 type RelatedNewsSectionProps = {
+  id?: string;
   items: NewsItem[];
   score: number;
   analysis: string;
@@ -11,6 +12,7 @@ type RelatedNewsSectionProps = {
 };
 
 export function RelatedNewsSection({
+  id,
   items,
   score,
   analysis,
@@ -24,7 +26,7 @@ export function RelatedNewsSection({
         : "bg-rose-100 text-rose-700";
 
   return (
-    <section className="relative overflow-hidden border-b border-zinc-200/80 py-16">
+    <section id={id} className="relative overflow-hidden border-b border-zinc-200/80 py-16">
       <div className="absolute inset-0 bg-gradient-to-b from-rose-50/50 via-white to-blue-50/30" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_20%,rgba(236,72,153,0.05),transparent_70%)]" />
 
@@ -49,7 +51,8 @@ export function RelatedNewsSection({
             <span
               className={`inline-flex min-w-[3.5rem] items-center justify-center rounded-xl px-4 py-2 text-xl font-bold ${scoreColor}`}
             >
-              {score}
+              {(score / 10).toFixed(1)}
+              <span className="align-sub text-[0.55em] font-normal opacity-90">/10</span>
             </span>
           </div>
         </div>

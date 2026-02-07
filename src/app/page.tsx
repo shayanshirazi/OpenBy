@@ -1,11 +1,9 @@
 import Link from "next/link";
-import Image from "next/image";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { getBestDeals } from "@/app/actions";
+import { getBestDealsFiltered } from "@/app/actions";
 import { CategorySlideshow } from "@/components/category-slideshow";
 import { HeroSearch } from "@/components/hero-search";
 import { FAQSection } from "@/components/faq-section";
+import { BestTimeToBuySlideshow } from "@/components/best-time-to-buy-slideshow";
 import { CATEGORIES } from "@/lib/categories";
 
 const FAQ_ITEMS = [
@@ -42,7 +40,11 @@ const FAQ_ITEMS = [
 ];
 
 export default async function Home() {
-  const bestDeals = await getBestDeals();
+  const { products: topProducts } = await getBestDealsFiltered({
+    sort: "score",
+    limit: 5,
+    page: 1,
+  });
 
   return (
     <div className="min-h-screen">
@@ -76,41 +78,11 @@ export default async function Home() {
               Best Time to Buy
             </h2>
             <p className="mt-3 text-zinc-600">
-              AI-recommended deals based on price trends
+              Top 5 highest OpenBy Index products across all categories
             </p>
           </div>
-          {bestDeals.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {bestDeals.map((product) => (
-                <Link key={product.id} href={`/product/${product.id}`}>
-                  <Card className="group h-full overflow-hidden border-zinc-200/80 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-zinc-300 hover:shadow-xl">
-                    <div className="relative aspect-square w-full bg-gradient-to-br from-zinc-50 to-zinc-100">
-                      <Image
-                        src={product.image_url ?? "https://placehold.co/400"}
-                        alt={product.title}
-                        fill
-                        unoptimized
-                        className="object-contain p-5 transition-transform duration-300 group-hover:scale-105"
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                      />
-                    </div>
-                    <CardContent className="flex flex-col gap-4 p-5">
-                      <h3 className="line-clamp-2 font-medium text-zinc-900">
-                        {product.title}
-                      </h3>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-xl font-bold text-zinc-900">
-                          ${Number(product.current_price).toFixed(2)}
-                        </p>
-                        <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm">
-                          OpenBy Index: {product.ai_score ?? "—"}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
+          {topProducts.length > 0 ? (
+            <BestTimeToBuySlideshow products={topProducts} />
           ) : (
             <div className="rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50/50 py-16 text-center">
               <p className="text-zinc-600">

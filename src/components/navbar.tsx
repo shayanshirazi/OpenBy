@@ -58,13 +58,13 @@ export function Navbar() {
         <nav className="flex shrink-0 items-center gap-8">
           <Link
             href="/categories"
-            className="text-sm font-semibold text-zinc-700 transition-colors hover:text-zinc-900"
+            className="inline-block text-sm font-semibold text-zinc-700 transition-[transform,color] duration-200 hover:scale-110 hover:text-zinc-900"
           >
             Categories
           </Link>
           <Link
             href="/best-deals"
-            className="text-sm font-semibold text-zinc-700 transition-colors hover:text-zinc-900"
+            className="inline-block text-sm font-semibold text-zinc-700 transition-[transform,color] duration-200 hover:scale-110 hover:text-zinc-900"
           >
             Best Deals
           </Link>

@@ -13,6 +13,13 @@ import { getGoogleTrendsData, type GoogleTrendsResult } from "@/lib/google-trend
 import { getCanadaInflationData, type CanadaInflationResult } from "@/lib/bank-of-canada";
 import { fetchRelatedNews, type NewsItem } from "@/lib/serpapi-news";
 import { fetchSocialPostMetrics, type TweetItem } from "@/lib/serpapi-social";
+import {
+  fetchForumDiscussions,
+  fetchSocialTrends,
+  computeSocialPresenceScore,
+  type ForumItem,
+  type RelatedQueryItem,
+} from "@/lib/serpapi-social-extended";
 import { computeVirality, type ViralityResult } from "@/lib/social-virality";
 import { PRODUCT_QA_MODELS, type ProductQAModelKey } from "@/lib/product-qa";
 import {
@@ -249,38 +256,89 @@ export type SocialMediaPresenceResult = {
   score: number;
   analysis: string;
   virality?: ViralityResult;
+  forums?: ForumItem[];
+  relatedQueries?: RelatedQueryItem[];
+  risingQueries?: RelatedQueryItem[];
+  youtubeInterest?: number | null;
   error?: string;
 };
 
-/** Social score from composite virality: V = w1·ER + w2·G + w3·N */
+/**
+ * Social presence from forums (Reddit/Quora), trends (related queries, YouTube interest),
+ * and optionally Twitter virality when tweets are found. Doesn't rely on Twitter.
+ */
 export async function getSocialMediaPresence(
   productName: string
 ): Promise<SocialMediaPresenceResult> {
-  const { postMetrics, items, error } = await fetchSocialPostMetrics(productName);
+  const [tweetResult, forumResult, trendsResult] = await Promise.all([
+    fetchSocialPostMetrics(productName),
+    fetchForumDiscussions(productName),
+    fetchSocialTrends(productName),
+  ]);
 
-  if (error || postMetrics.length === 0) {
-    return {
-      items: [],
-      score: 50,
-      analysis: "No recent social mentions. Virality score uses neutral default.",
-      error,
-    };
+  const { postMetrics, items: tweetItems, error: tweetError } = tweetResult;
+  const { items: forumItems } = forumResult;
+  const {
+    relatedQueries,
+    risingQueries,
+    youtubeInterest,
+    error: trendsError,
+  } = trendsResult;
+
+  const totalComments = forumItems.reduce(
+    (sum, f) => sum + (f.commentCount ?? f.answerCount ?? 0),
+    0
+  );
+
+  const extendedScore = computeSocialPresenceScore({
+    forumCount: forumItems.length,
+    totalComments,
+    relatedQueryCount: relatedQueries.length,
+    risingQueryCount: risingQueries.length,
+    youtubeInterest,
+  });
+
+  let score = extendedScore;
+  let virality: ViralityResult | undefined;
+  let analysisParts: string[] = [];
+
+  if (postMetrics.length > 0) {
+    virality = computeVirality(postMetrics);
+    score = Math.round((extendedScore * 0.4 + virality.compositeScore * 0.6));
+    analysisParts.push(
+      `${virality.postCount} X/Twitter posts. Reach: ${virality.reach.toLocaleString()}, Engagement: ${virality.engagement.toLocaleString()}.`
+    );
   }
 
-  const virality = computeVirality(postMetrics);
+  if (forumItems.length > 0) {
+    analysisParts.push(
+      `${forumItems.length} Reddit/Quora discussions (${totalComments.toLocaleString()} comments).`
+    );
+  }
+  if (relatedQueries.length > 0 || risingQueries.length > 0) {
+    analysisParts.push(
+      `${relatedQueries.length + risingQueries.length} related/rising search queries.`
+    );
+  }
+  if (youtubeInterest != null) {
+    analysisParts.push(`YouTube interest: ${youtubeInterest}/100.`);
+  }
 
-  const analysis = [
-    `${virality.postCount} posts analyzed.`,
-    `Reach: ${virality.reach.toLocaleString()}, Engagement: ${virality.engagement.toLocaleString()} (E = likes + 2×comments + 3×shares).`,
-    `ER: ${(virality.engagementRate * 100).toFixed(2)}%, Growth: ${virality.growthRate.toFixed(1)}/hr, Network amp: ${(virality.networkAmplification * 100).toFixed(1)}%.`,
-    `Composite V = 0.5×ER + 0.3×G + 0.2×N → ${virality.compositeScore}/100.`,
-  ].join(" ");
+  const analysis =
+    analysisParts.length > 0
+      ? analysisParts.join(" ")
+      : "Limited social signals. Forum and trend data used for score.";
 
   return {
-    items,
-    score: virality.compositeScore,
+    items: tweetItems,
+    score: Math.min(100, Math.max(0, score)),
     analysis,
     virality,
+    forums: forumItems.length > 0 ? forumItems : undefined,
+    relatedQueries: relatedQueries.length > 0 ? relatedQueries : undefined,
+    risingQueries: risingQueries.length > 0 ? risingQueries : undefined,
+    youtubeInterest: youtubeInterest ?? undefined,
+    error: tweetError ?? trendsError,
   };
 }
 
@@ -460,49 +518,47 @@ export type BuyRecommendationData = {
 };
 
 /**
- * Generate 2-3 sentence buy recommendation explanation using Gemini.
+ * Generate 4-6 sentence buy recommendation explanation using Gemini.
  * Cites only from the provided data - no hallucination.
  */
 export async function generateBuyRecommendationExplanation(
   data: BuyRecommendationData
 ): Promise<string> {
+  const to10 = (n: number) => (n / 10).toFixed(1);
   const dataBlock = `
 Product: ${data.productTitle}${data.productCategory ? ` (${data.productCategory})` : ""}
 Current price: $${data.currentPrice.toFixed(2)}
 
-OpenBy Index: ${data.openByIndex}/100
+OpenBy Index: ${to10(data.openByIndex)} (0-10 scale)
 
-LLM buy scores: ${data.llmScore}/100
-- OpenAI: ${data.llmAssessments.openai ?? "—"}
-- Gemini: ${data.llmAssessments.gemini ?? "—"}
-- Claude: ${data.llmAssessments.claude ?? "—"}
+LLM buy scores: ${to10(data.llmScore)}. ${data.llmAssessments.openai ?? "—"} | ${data.llmAssessments.gemini ?? "—"} | ${data.llmAssessments.claude ?? "—"}
 
-News score: ${data.newsScore}/100. ${data.newsAnalysis ?? ""}
+News score: ${to10(data.newsScore)}. ${data.newsAnalysis ?? ""}
 ${data.newsHeadlines?.length ? `Headlines: ${data.newsHeadlines.slice(0, 5).join("; ")}` : ""}
 
-Social media score: ${data.socialScore}/100. ${data.socialAnalysis ?? ""}
+Social media score: ${to10(data.socialScore)}. ${data.socialAnalysis ?? ""}
 
-Inflation score: ${data.inflationScore}/100. ${data.inflationLatest != null ? `Latest inflation: ${data.inflationLatest}%` : ""}
+Inflation score: ${to10(data.inflationScore)}. ${data.inflationLatest != null ? `Latest inflation: ${data.inflationLatest}%` : ""}
 
-Search trend score: ${data.searchTrendScore}/100
+Search trend score: ${to10(data.searchTrendScore)}
 
-Volatility score: ${data.volatilityScore}/100. ${data.volatilityPercent != null ? `Volatility: ${(data.volatilityPercent * 100).toFixed(2)}%` : ""}
+Volatility score: ${to10(data.volatilityScore)}. ${data.volatilityPercent != null ? `Volatility: ${(data.volatilityPercent * 100).toFixed(2)}%` : ""}
 
-Moving average score: ${data.maScore}/100. MA(7): ${data.ma7 != null ? `$${data.ma7.toFixed(2)}` : "—"}. MA(60): ${data.ma60 != null ? `$${data.ma60.toFixed(2)}` : "—"}. ${data.priceAboveMa7 != null ? `Price ${data.priceAboveMa7 ? "above" : "below"} MA(7).` : ""} ${data.priceAboveMa60 != null ? `Price ${data.priceAboveMa60 ? "above" : "below"} MA(60).` : ""}
+Moving average score: ${to10(data.maScore)}. MA(7): ${data.ma7 != null ? `$${data.ma7.toFixed(2)}` : "—"}. MA(60): ${data.ma60 != null ? `$${data.ma60.toFixed(2)}` : "—"}. ${data.priceAboveMa7 != null ? `Price ${data.priceAboveMa7 ? "above" : "below"} MA(7).` : ""} ${data.priceAboveMa60 != null ? `Price ${data.priceAboveMa60 ? "above" : "below"} MA(60).` : ""}
 
 7-day price change: ${data.priceChange7d ?? "no data"}
 `.trim();
 
-  const systemPrompt = `You are a product buying advisor. Your task is to write 2-3 sentences explaining why this is or is not a good time to buy the product. CRITICAL: Cite ONLY facts and numbers from the data provided below. Do not add any information, assumptions, or claims not present in the data. Be concise and specific.`;
+  const systemPrompt = `You are a product buying advisor. Your task is to write 4-6 sentences explaining why this is or is not a good time to buy the product. All scores are on a 0-10 scale. CRITICAL: Cite ONLY facts and numbers from the data provided below. Do not add any information, assumptions, or claims not present in the data. Be specific and thorough, covering price trends, moving averages, LLM assessments, and other relevant signals. When mentioning scores, use the 0-10 scale (e.g., "7.2" not "72/100"). Use these exact terms when referencing factors so users can jump to sections: "OpenBy Index", "LLM score", "moving average", "7-day moving average", "60-day moving average", "volatility", "inflation", "related news", "social media", "search trend".`;
 
-  const userPrompt = `Based ONLY on this data, write 2-3 sentences explaining the buy recommendation:\n\n${dataBlock}`;
+  const userPrompt = `Based ONLY on this data, write 4-6 sentences explaining the buy recommendation:\n\n${dataBlock}`;
 
   try {
     const result = await generate(userPrompt, {
       systemPrompt,
       model: "google/gemini-2.0-flash-001",
       temperature: 0.3,
-      maxTokens: 200,
+      maxTokens: 400,
     });
     return result?.trim() ?? "";
   } catch {

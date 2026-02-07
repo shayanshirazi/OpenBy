@@ -12,6 +12,7 @@ import {
 import { TrendingUp, Info } from "lucide-react";
 
 type VolatilityScoreSectionProps = {
+  id?: string;
   score: number;
   volatility: number;
   dataPoints: { date: string; price: number; returnPct?: number }[];
@@ -20,6 +21,7 @@ type VolatilityScoreSectionProps = {
 };
 
 export function VolatilityScoreSection({
+  id,
   score,
   volatility,
   dataPoints,
@@ -48,7 +50,7 @@ export function VolatilityScoreSection({
         : "bg-rose-100 text-rose-700";
 
   return (
-    <section className="relative overflow-hidden border-b border-zinc-200/80 py-16">
+    <section id={id} className="relative overflow-hidden border-b border-zinc-200/80 py-16">
       <div className="absolute inset-0 bg-gradient-to-b from-emerald-50/50 via-white to-teal-50/30" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_20%,rgba(16,185,129,0.06),transparent_70%)]" />
 
@@ -112,7 +114,8 @@ export function VolatilityScoreSection({
             <span
               className={`inline-flex min-w-[4rem] items-center justify-center rounded-xl px-4 py-3 text-2xl font-bold ${scoreColor}`}
             >
-              {score}
+              {(score / 10).toFixed(1)}
+              <span className="align-sub text-[0.5em] font-normal opacity-90">/10</span>
             </span>
             <span className="text-sm text-zinc-600">
               Volatility: {(volatility * 100).toFixed(2)}%

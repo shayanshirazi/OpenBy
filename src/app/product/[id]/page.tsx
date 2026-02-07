@@ -222,20 +222,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
       </div>
 
       {/* OpenBy Index Calculation - Full-width section */}
-      <section className="w-full border-b border-zinc-200/80 bg-zinc-50/50 py-10">
+      <section id="openby-index" className="w-full border-b border-zinc-200/80 bg-zinc-50/50 py-10">
         <div className="px-6 sm:px-8 lg:px-12">
           <IndexBreakdownTable breakdown={breakdown} totalScore={openByIndex} />
         </div>
       </section>
 
       {/* LLM Score Section */}
-      <LLMScoreSection openai={openai} gemini={gemini} claude={claude} />
+      <LLMScoreSection id="llm-score" openai={openai} gemini={gemini} claude={claude} />
 
       {/* Product Q&A - Ask specific question */}
       <ProductQASection productTitle={title} productDescription={description} />
 
       {/* Related News Section */}
       <RelatedNewsSection
+        id="related-news"
         items={newsResult.items}
         score={newsResult.score}
         analysis={newsResult.analysis}
@@ -248,11 +249,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
         score={socialResult.score}
         analysis={socialResult.analysis}
         virality={socialResult.virality}
+        forums={socialResult.forums}
+        relatedQueries={socialResult.relatedQueries}
+        risingQueries={socialResult.risingQueries}
+        youtubeInterest={socialResult.youtubeInterest}
         error={socialResult.error}
       />
 
       {/* Inflation Score Section */}
       <InflationScoreSection
+        id="inflation"
         score={inflationResult.score}
         latestValue={inflationResult.latestValue}
         dataPoints={inflationResult.dataPoints}
@@ -261,6 +267,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       {/* Search Trend Section */}
       <SearchTrendSection
+        id="search-trend"
         score={searchTrendResult.score}
         dataPoints={searchTrendResult.dataPoints}
         error={searchTrendResult.error}
@@ -269,6 +276,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       {/* Moving Average Score Section */}
       <MovingAverageScoreSection
+        id="moving-average"
         score={movingAverageResult.score}
         currentPrice={movingAverageResult.currentPrice}
         ma7={movingAverageResult.ma7}
@@ -286,6 +294,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       {/* Volatility Score Section */}
       <VolatilityScoreSection
+        id="volatility"
         score={volatilityResult.score}
         volatility={volatilityResult.volatility}
         dataPoints={volatilityResult.dataPoints}

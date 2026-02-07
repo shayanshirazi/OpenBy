@@ -13,6 +13,7 @@ import type { InflationDataPoint } from "@/lib/bank-of-canada";
 import { Percent, ExternalLink } from "lucide-react";
 
 type InflationScoreSectionProps = {
+  id?: string;
   score: number;
   latestValue: number;
   dataPoints: InflationDataPoint[];
@@ -20,6 +21,7 @@ type InflationScoreSectionProps = {
 };
 
 export function InflationScoreSection({
+  id,
   score,
   latestValue,
   dataPoints,
@@ -38,7 +40,7 @@ export function InflationScoreSection({
         : "bg-rose-100 text-rose-700";
 
   return (
-    <section className="relative overflow-hidden border-b border-zinc-200/80 py-16">
+    <section id={id} className="relative overflow-hidden border-b border-zinc-200/80 py-16">
       <div className="absolute inset-0 bg-gradient-to-b from-amber-50/50 via-white to-orange-50/30" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_20%,rgba(245,158,11,0.06),transparent_70%)]" />
 
@@ -67,7 +69,8 @@ export function InflationScoreSection({
           <div className="flex shrink-0 flex-col items-center justify-center gap-4 rounded-2xl border border-zinc-200/80 bg-white/80 px-8 py-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-sm lg:w-56">
             <span className="text-sm font-medium text-zinc-500">Inflation Score</span>
             <span className={`inline-flex min-w-[4rem] items-center justify-center rounded-xl px-4 py-3 text-2xl font-bold ${scoreColor}`}>
-              {score}
+              {(score / 10).toFixed(1)}
+              <span className="align-sub text-[0.5em] font-normal opacity-90">/10</span>
             </span>
             <span className="text-sm text-zinc-600">Latest CPI: {latestValue}%</span>
             {error && (

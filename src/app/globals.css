@@ -120,6 +120,9 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-background text-foreground;
   }
@@ -168,4 +171,10 @@
 }
 .animate-scroll-down {
   animation: scroll-down 2s ease-in-out infinite;
+}
+
+/* Smoother accordion expand/collapse */
+[data-slot="accordion-content"] {
+  animation-duration: 0.35s !important;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
 }

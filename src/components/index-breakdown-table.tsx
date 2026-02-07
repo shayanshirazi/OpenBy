@@ -59,6 +59,24 @@ export function IndexBreakdownTable({ breakdown, totalScore }: IndexBreakdownTab
     );
   };
 
+  const getScoreColor = (score: number) =>
+    score >= 70
+      ? "text-emerald-600 font-semibold"
+      : score >= 40
+        ? "text-amber-600 font-semibold"
+        : "text-rose-600 font-semibold";
+
+  const getContributionColor = (weightedScore: number, weight: number) => {
+    const ratio = weight > 0 ? (weightedScore / weight) * 100 : 0;
+    return ratio >= 70
+      ? "text-emerald-600 font-semibold"
+      : ratio >= 40
+        ? "text-amber-600 font-semibold"
+        : "text-rose-600 font-semibold";
+  };
+
+  const totalScoreColor = getScoreColor(totalScore);
+
   return (
     <div className="w-full overflow-visible rounded-xl border border-zinc-200/80 bg-white shadow-sm">
       <div className="border-b border-zinc-200/80 bg-zinc-50/50 px-6 py-4">
@@ -133,8 +151,11 @@ export function IndexBreakdownTable({ breakdown, totalScore }: IndexBreakdownTab
                 </div>
               </td>
               <td className="px-6 py-3 text-right text-sm text-zinc-600">{row.weight}%</td>
-              <td className="px-6 py-3 text-right text-sm font-medium text-zinc-900">{row.score}</td>
-              <td className="px-6 py-3 text-right text-sm font-medium text-zinc-700">
+              <td className={`px-6 py-3 text-right text-sm ${getScoreColor(row.score)}`}>
+                {(row.score / 10).toFixed(1)}
+                <span className="align-sub text-[0.65em] font-normal opacity-80">/10</span>
+              </td>
+              <td className={`px-6 py-3 text-right text-sm ${getContributionColor(row.weightedScore, row.weight)}`}>
                 {row.weightedScore.toFixed(1)}
               </td>
             </tr>
@@ -145,7 +166,10 @@ export function IndexBreakdownTable({ breakdown, totalScore }: IndexBreakdownTab
             <td className="px-6 py-4 text-sm font-semibold text-zinc-900" colSpan={3}>
               OpenBy Index
             </td>
-            <td className="px-6 py-4 text-right text-lg font-bold text-zinc-900">{totalScore}</td>
+            <td className={`px-6 py-4 text-right text-lg font-bold ${totalScoreColor}`}>
+              {(totalScore / 10).toFixed(1)}
+              <span className="align-sub text-[0.55em] font-normal opacity-80">/10</span>
+            </td>
           </tr>
         </tfoot>
       </table>
