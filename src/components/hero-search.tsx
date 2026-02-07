@@ -6,14 +6,11 @@ import { ChevronDown, Search, Laptop, Monitor, Smartphone, Headphones, Sparkles 
 import { Input } from "@/components/ui/input";
 
 const FLOATING_ICONS = [
-  { Icon: Laptop, x: "12%", y: "25%", size: 28 },
-  { Icon: Monitor, x: "85%", y: "20%", size: 32 },
-  { Icon: Smartphone, x: "8%", y: "70%", size: 24 },
-  { Icon: Headphones, x: "88%", y: "65%", size: 26 },
-  { Icon: Sparkles, x: "75%", y: "35%", size: 20 },
-  { Icon: Laptop, x: "20%", y: "85%", size: 22 },
-  { Icon: Monitor, x: "90%", y: "80%", size: 24 },
-  { Icon: Smartphone, x: "5%", y: "45%", size: 20 },
+  { Icon: Laptop, x: "15%", y: "25%", size: 28 },
+  { Icon: Monitor, x: "85%", y: "25%", size: 28 },
+  { Icon: Smartphone, x: "10%", y: "75%", size: 24 },
+  { Icon: Headphones, x: "88%", y: "70%", size: 24 },
+  { Icon: Sparkles, x: "50%", y: "15%", size: 20 },
 ];
 
 export function HeroSearch() {
@@ -43,8 +40,8 @@ export function HeroSearch() {
   useEffect(() => {
     const animate = () => {
       setMouse((prev) => ({
-        x: prev.x + (targetRef.current.x - prev.x) * 0.08,
-        y: prev.y + (targetRef.current.y - prev.y) * 0.08,
+        x: prev.x + (targetRef.current.x - prev.x) * 0.14,
+        y: prev.y + (targetRef.current.y - prev.y) * 0.14,
       }));
       rafRef.current = requestAnimationFrame(animate);
     };
@@ -63,7 +60,7 @@ export function HeroSearch() {
       className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6"
     >
       {/* Base mesh gradient background */}
-      <div className="absolute inset-0 -z-20 bg-[linear-gradient(135deg,#eff6ff_0%,#e0e7ff_25%,#e0f2fe_50%,#f0f9ff_75%,#eef2ff_100%)]" />
+      <div className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,#eff6ff_0%,#e0e7ff_25%,#e0f2fe_50%,#f0f9ff_75%,#eef2ff_100%)]" />
 
       {/* Animated mesh orbs */}
       <div
@@ -116,26 +113,26 @@ export function HeroSearch() {
 
       {/* Cursor spotlight glow */}
       <div
-        className="pointer-events-none absolute -z-10 h-[400px] w-[400px] rounded-full blur-3xl transition-opacity duration-500"
+        className="pointer-events-none absolute -z-10 h-[500px] w-[500px] rounded-full blur-3xl transition-opacity duration-300"
         style={{
           left: `${mouse.x * 100}%`,
           top: `${mouse.y * 100}%`,
           transform: "translate(-50%, -50%)",
           opacity: isHovering ? 1 : 0,
           background:
-            "radial-gradient(circle, rgba(59,130,246,0.25) 0%, rgba(99,102,241,0.12) 40%, transparent 70%)",
+            "radial-gradient(circle, rgba(59,130,246,0.4) 0%, rgba(99,102,241,0.22) 35%, rgba(168,85,247,0.08) 55%, transparent 70%)",
         }}
       />
 
       {/* Floating cursor-reactive icons */}
       {FLOATING_ICONS.map(({ Icon, x, y, size }, i) => {
-        const intensity = 20 + (i % 3) * 8;
+        const intensity = 38 + (i % 4) * 12;
         const dx = (mouse.x - 0.5) * intensity * (i % 2 === 0 ? 1 : -1);
         const dy = (mouse.y - 0.5) * intensity * (i % 2 === 0 ? -1 : 1);
         return (
           <div
             key={i}
-            className="absolute -z-10 rounded-2xl bg-white/60 p-3 shadow-lg backdrop-blur-md transition-all duration-500 hover:scale-110 hover:bg-white/80 hover:shadow-xl"
+            className="absolute -z-10 rounded-2xl bg-white/60 p-3 shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-110 hover:bg-white/80 hover:shadow-xl"
             style={{
               left: x,
               top: y,

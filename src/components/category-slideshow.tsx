@@ -24,8 +24,6 @@ const CARD_WIDTH = 160;
 const GAP = 16;
 const ITEM_WIDTH = CARD_WIDTH + GAP;
 const VISIBLE_CARDS = 4;
-const VISIBLE_WIDTH = VISIBLE_CARDS * CARD_WIDTH + (VISIBLE_CARDS - 1) * GAP;
-const NAV_MARGIN = 48;
 const TRANSITION_MS = 300;
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -86,24 +84,17 @@ export function CategorySlideshow({ categories }: { categories: Category[] }) {
   const canGoPrev = index > 0;
 
   return (
-    <div className="relative w-full">
+    <div className="relative flex w-full items-center gap-2">
       <button
         onClick={goPrev}
         disabled={!canGoPrev}
         aria-label="Previous categories"
-        className="absolute left-0 top-1/2 z-10 -translate-y-1/2 -translate-x-2 rounded-full bg-white/90 p-2 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"
+        className="z-10 shrink-0 rounded-full bg-white/90 p-2 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"
       >
         <ChevronLeft className="h-6 w-6 text-zinc-700" />
       </button>
 
-      <div
-        className="overflow-hidden"
-        style={{
-          marginLeft: NAV_MARGIN,
-          marginRight: NAV_MARGIN,
-          width: VISIBLE_WIDTH,
-        }}
-      >
+      <div className="min-w-0 flex-1 overflow-hidden">
         <div
           className="flex"
           style={{
@@ -122,7 +113,7 @@ export function CategorySlideshow({ categories }: { categories: Category[] }) {
         onClick={goNext}
         disabled={!canGoNext}
         aria-label="Next categories"
-        className="absolute right-0 top-1/2 z-10 -translate-y-1/2 translate-x-2 rounded-full bg-white/90 p-2 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"
+        className="z-10 shrink-0 rounded-full bg-white/90 p-2 shadow-lg backdrop-blur-sm transition-all hover:bg-white hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:opacity-40"
       >
         <ChevronRight className="h-6 w-6 text-zinc-700" />
       </button>

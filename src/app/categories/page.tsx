@@ -39,7 +39,7 @@ export default async function CategoriesPage() {
   const bestDeals = await getBestDeals(12);
 
   return (
-    <div className="bg-white">
+    <div className="min-h-screen">
       {/* Hero */}
       <section className="relative border-b border-zinc-200/80 bg-gradient-to-b from-blue-50/60 via-indigo-50/30 to-white py-16">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_70%_40%_at_50%_0%,rgba(59,130,246,0.2),rgba(99,102,241,0.08),transparent_60%)]" />

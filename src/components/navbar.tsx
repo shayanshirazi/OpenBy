@@ -2,23 +2,40 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export function Navbar() {
   const pathname = usePathname();
+  const [showOnHome, setShowOnHome] = useState(false);
 
-  if (pathname === "/") {
-    return null;
-  }
+  useEffect(() => {
+    if (pathname !== "/") return;
+    const checkScroll = () => {
+      setShowOnHome(window.scrollY > window.innerHeight * 0.6);
+    };
+    checkScroll();
+    window.addEventListener("scroll", checkScroll, { passive: true });
+    return () => window.removeEventListener("scroll", checkScroll);
+  }, [pathname]);
+
+  const isVisible = pathname !== "/" || showOnHome;
+  if (!isVisible) return null;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-zinc-200/60 bg-white/70 shadow-sm backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-white/20 bg-white/10 shadow-sm backdrop-blur-3xl transition-opacity duration-300">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-6">
         {/* Left: Logo */}
         <Link
           href="/"
-          className="shrink-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-600 bg-clip-text text-2xl font-bold tracking-tight text-transparent transition-opacity hover:opacity-80"
+          onClick={(e) => {
+            if (pathname === "/") {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
+          }}
+          className="inline-block shrink-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-600 bg-clip-text text-3xl font-bold tracking-tight text-transparent transition-transform duration-200 hover:scale-110"
         >
           OpenBy
         </Link>
@@ -31,7 +48,7 @@ export function Navbar() {
           <Input
             name="q"
             type="search"
-            placeholder="Search for products..."
+            placeholder="What are you looking for today?"
             className="h-10 border-zinc-200/80 bg-white/60 pl-10 transition-colors focus-visible:border-blue-300 focus-visible:bg-white"
             autoComplete="off"
           />

@@ -23,7 +23,7 @@ export default async function BestDealsPage({ searchParams }: BestDealsPageProps
   });
 
   return (
-    <div className="bg-white">
+    <div className="min-h-screen">
       <section className="relative border-b border-zinc-200/80 bg-gradient-to-b from-blue-50/70 via-indigo-50/40 to-white py-12">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_40%_at_50%_0%,rgba(59,130,246,0.22),rgba(99,102,241,0.1),transparent_55%)]" />
         <div className="relative mx-auto max-w-6xl px-6">

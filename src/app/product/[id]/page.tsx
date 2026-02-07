@@ -66,7 +66,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   return (
-    <div className="bg-white">
+    <div className="min-h-screen">
       {/* Hero: Image, Name, Price, Score, Buy Spectrum */}
       <div className="relative border-b border-zinc-200/80 bg-gradient-to-b from-blue-50/50 via-indigo-50/20 to-white">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_20%_30%,rgba(59,130,246,0.2),rgba(99,102,241,0.1),transparent_60%)]" />

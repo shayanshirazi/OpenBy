@@ -45,12 +45,13 @@ export default async function Home() {
   const bestDeals = await getBestDeals();
 
   return (
-    <div className="bg-white">
+    <div className="min-h-screen">
       <HeroSearch />
 
       {/* Section 2: Trending Categories */}
-      <section id="categories" className="relative overflow-visible border-t border-zinc-200/80 bg-gradient-to-b from-blue-50/40 via-indigo-50/20 to-white py-24">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(59,130,246,0.18),rgba(99,102,241,0.06),transparent_70%)]" />
+      <section id="categories" className="relative overflow-visible bg-white py-24">
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgba(239,246,255,0.5)_0%,transparent_60px)]" />
+        <div className="absolute bottom-0 left-0 right-0 h-32 -z-[5] bg-[linear-gradient(to_top,rgba(250,250,250,0.9)_0%,transparent_100%)]" />
         <div className="relative mx-auto max-w-6xl px-12 sm:px-16">
           <div className="mb-14 text-center">
             <h2 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
@@ -65,8 +66,10 @@ export default async function Home() {
       </section>
 
       {/* Section 3: Best AI Picks */}
-      <section id="best-deals" className="relative border-t border-zinc-200/80 bg-gradient-to-b from-zinc-50 to-indigo-50/30 py-24">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_100%_60%_at_50%_50%,rgba(99,102,241,0.15),rgba(59,130,246,0.08),transparent_65%)]" />
+      <section id="best-deals" className="relative bg-gradient-to-b from-zinc-50/80 to-indigo-50/40 py-24">
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgba(255,255,255,0.95)_0%,transparent_80px)]" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_100%_60%_at_50%_50%,rgba(99,102,241,0.08),rgba(59,130,246,0.04),transparent_70%)]" />
+        <div className="absolute bottom-0 left-0 right-0 h-32 -z-[5] bg-[linear-gradient(to_top,rgba(238,242,255,0.9)_0%,transparent_100%)]" />
         <div className="relative mx-auto max-w-6xl px-6">
           <div className="mb-14 text-center">
             <h2 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
@@ -125,7 +128,7 @@ export default async function Home() {
       </section>
 
       {/* Section 4: FAQ */}
-      <section className="relative border-t border-zinc-200/80 bg-gradient-to-b from-indigo-50/30 via-blue-50/40 to-white py-24">
+      <section className="relative bg-gradient-to-b from-indigo-50/40 via-blue-50/30 to-white py-24">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_110%,rgba(59,130,246,0.16),rgba(168,85,247,0.06),transparent_70%)]" />
         <div className="relative mx-auto max-w-3xl px-6">
           <div className="mb-14 text-center">
