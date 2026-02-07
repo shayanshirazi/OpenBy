@@ -3,9 +3,11 @@
 type BuySpectrumProps = {
   score: number | null;
   label?: string;
+  /** AI-generated 2-3 sentence explanation based on page data. When provided, replaces the static subtext. */
+  explanation?: string | null;
 };
 
-export function BuySpectrum({ score, label = "Buy Now Score" }: BuySpectrumProps) {
+export function BuySpectrum({ score, label = "Buy Now Score", explanation }: BuySpectrumProps) {
   const value = score != null ? Math.min(100, Math.max(0, score)) : 50;
   const isGood = value >= 70;
   const isFair = value >= 40 && value < 70;
@@ -18,6 +20,7 @@ export function BuySpectrum({ score, label = "Buy Now Score" }: BuySpectrumProps
   };
 
   const verdict = getVerdict();
+  const displayText = explanation?.trim() || verdict.subtext;
 
   return (
     <div className="w-full rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
@@ -48,7 +51,7 @@ export function BuySpectrum({ score, label = "Buy Now Score" }: BuySpectrumProps
       </div>
       <div className="mt-6 rounded-xl bg-zinc-50 p-4">
         <p className={`font-semibold ${verdict.color}`}>{verdict.text}</p>
-        <p className="mt-1 text-sm text-zinc-600">{verdict.subtext}</p>
+        <p className="mt-1 text-sm text-zinc-600">{displayText}</p>
       </div>
     </div>
   );

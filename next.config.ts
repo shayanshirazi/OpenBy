@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: [
+    "*.serveousercontent.com",
+    "*.serveo.net",
+  ],
   images: {
     dangerouslyAllowSVG: true,
     remotePatterns: [

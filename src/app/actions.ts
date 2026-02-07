@@ -11,7 +11,16 @@ import {
 } from "@/lib/openrouter";
 import { getGoogleTrendsData, type GoogleTrendsResult } from "@/lib/google-trends";
 import { getCanadaInflationData, type CanadaInflationResult } from "@/lib/bank-of-canada";
-
+import { fetchRelatedNews, type NewsItem } from "@/lib/serpapi-news";
+import { fetchSocialPostMetrics, type TweetItem } from "@/lib/serpapi-social";
+import { computeVirality, type ViralityResult } from "@/lib/social-virality";
+import { PRODUCT_QA_MODELS, type ProductQAModelKey } from "@/lib/product-qa";
+import {
+  computeVolatility,
+  volatilityToScore,
+} from "@/lib/volatility";
+import { computeMovingAverageAnalysis } from "@/lib/moving-average";
+import { fetchProductPrice } from "@/lib/priceapi";
 
 /**
  * Generate AI response via OpenRouter (Gemini, Claude, GPT, etc.).
@@ -60,6 +69,32 @@ export async function aiChat(
       error: err instanceof Error ? err.message : "AI chat failed",
     };
   }
+}
+
+export async function askProductQuestion(
+  productTitle: string,
+  productDescription: string,
+  userQuestion: string,
+  modelKey: ProductQAModelKey
+): Promise<{ content: string } | { error: string }> {
+  const model = PRODUCT_QA_MODELS[modelKey];
+  const systemPrompt = `You are a helpful product advisor for OpenBy, an AI-powered price tracking platform. The user is viewing a product page and has a specific question about it.
+
+Product: ${productTitle}
+Description: ${productDescription || "No description available."}
+
+Answer the user's question concisely and helpfully. Focus on buying advice, price considerations, value, alternatives, or product-specific details. Keep responses to 2-4 sentences unless the question requires more detail.`;
+
+  const messages: ChatMessage[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userQuestion },
+  ];
+
+  return aiChat(messages, {
+    model,
+    temperature: 0.5,
+    maxTokens: 512,
+  });
 }
 
 const LLM_BUY_PROMPT = `You are a product buying advisor. Given a product name and description, assess if TODAY is a good time to buy it.
@@ -145,6 +180,382 @@ Is today a good time to buy this product? Respond with a score from 1 to 10 (you
 
 export async function getCanadaInflation(): Promise<CanadaInflationResult> {
   return getCanadaInflationData();
+}
+
+const NEWS_QUANTIFY_PROMPT = `You are a product buying analyst. Given a list of recent news headlines/snippets related to a product or its category, assess how these news items affect whether NOW is a good time to buy.
+
+Your response MUST follow this exact format:
+- First line: A single number from 0 to 100 (0 = news strongly suggests waiting, 100 = news strongly suggests buying now). Nothing else on that line.
+- Second line: Empty
+- Following lines: 2-4 sentences summarizing how the news affects the buying decision. Be concise and practical.`;
+
+export type RelatedNewsResult = {
+  items: NewsItem[];
+  score: number;
+  analysis: string;
+  error?: string;
+};
+
+export async function getRelatedNews(
+  productName: string
+): Promise<RelatedNewsResult> {
+  const { items, error } = await fetchRelatedNews(productName);
+
+  if (error || items.length === 0) {
+    return {
+      items: [],
+      score: 50,
+      analysis: "No recent news available to assess.",
+      error,
+    };
+  }
+
+  const newsText = items
+    .slice(0, 6)
+    .map((n, i) => `${i + 1}. ${n.title}${n.snippet ? ` — ${n.snippet.slice(0, 120)}...` : ""}`)
+    .join("\n");
+
+  try {
+    const content = await generate(
+      `Product context: ${productName}\n\nRecent related news:\n${newsText}\n\nBased on these news items, how do they affect whether now is a good time to buy?`,
+      {
+        systemPrompt: NEWS_QUANTIFY_PROMPT,
+        model: "google/gemini-2.0-flash-001",
+        temperature: 0.3,
+        maxTokens: 300,
+      }
+    );
+
+    const lines = content.trim().split("\n").filter(Boolean);
+    const firstLine = lines[0] ?? "";
+    const scoreMatch = firstLine.match(/\b(\d{1,3})\b/);
+    const raw = scoreMatch ? parseInt(scoreMatch[1], 10) : null;
+    const score = raw != null ? Math.min(100, Math.max(0, raw)) : 50;
+    const analysis = lines.slice(1).join(" ").trim() || "News suggests a neutral outlook.";
+
+    return { items, score, analysis };
+  } catch (err) {
+    return {
+      items,
+      score: 50,
+      analysis: "Could not analyze news impact.",
+      error: err instanceof Error ? err.message : "Analysis failed",
+    };
+  }
+}
+
+export type SocialMediaPresenceResult = {
+  items: TweetItem[];
+  score: number;
+  analysis: string;
+  virality?: ViralityResult;
+  error?: string;
+};
+
+/** Social score from composite virality: V = w1·ER + w2·G + w3·N */
+export async function getSocialMediaPresence(
+  productName: string
+): Promise<SocialMediaPresenceResult> {
+  const { postMetrics, items, error } = await fetchSocialPostMetrics(productName);
+
+  if (error || postMetrics.length === 0) {
+    return {
+      items: [],
+      score: 50,
+      analysis: "No recent social mentions. Virality score uses neutral default.",
+      error,
+    };
+  }
+
+  const virality = computeVirality(postMetrics);
+
+  const analysis = [
+    `${virality.postCount} posts analyzed.`,
+    `Reach: ${virality.reach.toLocaleString()}, Engagement: ${virality.engagement.toLocaleString()} (E = likes + 2×comments + 3×shares).`,
+    `ER: ${(virality.engagementRate * 100).toFixed(2)}%, Growth: ${virality.growthRate.toFixed(1)}/hr, Network amp: ${(virality.networkAmplification * 100).toFixed(1)}%.`,
+    `Composite V = 0.5×ER + 0.3×G + 0.2×N → ${virality.compositeScore}/100.`,
+  ].join(" ");
+
+  return {
+    items,
+    score: virality.compositeScore,
+    analysis,
+    virality,
+  };
+}
+
+/** Generate mock price history when real data is unavailable. Deterministic per productId. */
+function generateMockPriceHistory(
+  productId: string,
+  currentPrice: number,
+  days = 30
+): { date: string; price: number }[] {
+  const prices: { date: string; price: number }[] = [];
+  const now = new Date();
+  // Simple seeded "random" from productId
+  let seed = 0;
+  for (let i = 0; i < productId.length; i++) {
+    seed += productId.charCodeAt(i) ?? 0;
+  }
+
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    const isLastDay = i === 0;
+    const t = (days - 1 - i) / Math.max(1, days - 1);
+    const rand = Math.sin(seed + i * 1.5) * 0.5 + 0.5;
+    const variance = currentPrice * (0.015 * (rand - 0.5));
+    const trend = currentPrice * 0.002 * t * (rand - 0.4);
+    const price = isLastDay
+      ? currentPrice
+      : Math.round((currentPrice + variance + trend) * 100) / 100;
+    prices.push({
+      date: date.toISOString().split("T")[0] ?? "",
+      price: Math.max(price, currentPrice * 0.75),
+    });
+  }
+  return prices;
+}
+
+export type VolatilityResult = {
+  score: number;
+  volatility: number;
+  dataPoints: { date: string; price: number; returnPct?: number }[];
+  isMockData?: boolean;
+  error?: string;
+};
+
+export async function getProductVolatility(
+  productId: string,
+  currentPrice: number,
+  priceHistory?: Array<{ price: number; date?: string }>
+): Promise<VolatilityResult> {
+  const dataPoints = getPriceHistoryForProduct(productId, currentPrice, priceHistory, 30);
+
+  const prices = dataPoints.map((p) => p.price);
+  const volatility = computeVolatility(prices);
+  const score = volatilityToScore(volatility);
+
+  const returns = (() => {
+    const r: number[] = [];
+    for (let i = 1; i < prices.length; i++) {
+      const prev = prices[i - 1]!;
+      if (prev === 0) continue;
+      r.push(((prices[i]! - prev) / prev) * 100);
+    }
+    return r;
+  })();
+
+  const enrichedPoints = dataPoints.map((d, i) => ({
+    ...d,
+    returnPct: i > 0 ? returns[i - 1] : undefined,
+  }));
+
+  return {
+    score,
+    volatility,
+    dataPoints: enrichedPoints,
+    isMockData: !priceHistory || priceHistory.length < 2,
+  };
+}
+
+function getPriceHistoryForProduct(
+  productId: string,
+  currentPrice: number,
+  priceHistory?: Array<{ price: number; date?: string }>,
+  minDays = 30
+): { date: string; price: number }[] {
+  if (priceHistory && priceHistory.length >= 2) {
+    const sorted = [...priceHistory]
+      .filter((p) => typeof p.price === "number" && !Number.isNaN(p.price))
+      .sort((a, b) => {
+        const dA = (a as { date?: string }).date ?? "";
+        const dB = (b as { date?: string }).date ?? "";
+        const da = dA ? new Date(dA).getTime() : 0;
+        const db = dB ? new Date(dB).getTime() : 0;
+        return da - db;
+      });
+    if (sorted.length >= 2) {
+      return sorted.map((p) => ({
+        date: (p as { date?: string }).date ?? "",
+        price: Number(p.price),
+      }));
+    }
+  }
+  return generateMockPriceHistory(productId, currentPrice, minDays);
+}
+
+export type MovingAverageResult = {
+  score: number;
+  currentPrice: number;
+  ma7: number | null;
+  ma60: number | null;
+  ma7ZScore: number | null;
+  ma60ZScore: number | null;
+  ma7StdDev: number;
+  ma60StdDev: number;
+  priceAboveMa7: boolean | null;
+  priceAboveMa60: boolean | null;
+  dataPoints: { date: string; price: number; ma7: number | null; ma60: number | null }[];
+  isMockData?: boolean;
+  error?: string;
+};
+
+export async function getProductMovingAverage(
+  productId: string,
+  currentPrice: number,
+  priceHistory?: Array<{ price: number; date?: string }>
+): Promise<MovingAverageResult> {
+  const dataPoints = getPriceHistoryForProduct(productId, currentPrice, priceHistory, 90);
+  const isMockData = !priceHistory || priceHistory.length < 7;
+
+  const result = computeMovingAverageAnalysis(dataPoints);
+
+  if (!result) {
+    return {
+      score: 50,
+      currentPrice,
+      ma7: null,
+      ma60: null,
+      ma7ZScore: null,
+      ma60ZScore: null,
+      ma7StdDev: 0,
+      ma60StdDev: 0,
+      priceAboveMa7: null,
+      priceAboveMa60: null,
+      dataPoints: dataPoints.map((d) => ({ ...d, ma7: null, ma60: null })),
+      isMockData,
+    };
+  }
+
+  return {
+    ...result,
+    isMockData,
+  };
+}
+
+export type BuyRecommendationData = {
+  productTitle: string;
+  productCategory?: string | null;
+  currentPrice: number;
+  openByIndex: number;
+  llmScore: number;
+  llmAssessments: { openai?: string; gemini?: string; claude?: string };
+  newsScore: number;
+  newsAnalysis?: string;
+  newsHeadlines?: string[];
+  socialScore: number;
+  socialAnalysis?: string;
+  inflationScore: number;
+  inflationLatest?: number;
+  searchTrendScore: number;
+  volatilityScore: number;
+  volatilityPercent?: number;
+  maScore: number;
+  ma7?: number | null;
+  ma60?: number | null;
+  priceAboveMa7?: boolean | null;
+  priceAboveMa60?: boolean | null;
+  priceChange7d?: "up" | "down" | null;
+};
+
+/**
+ * Generate 2-3 sentence buy recommendation explanation using Gemini.
+ * Cites only from the provided data - no hallucination.
+ */
+export async function generateBuyRecommendationExplanation(
+  data: BuyRecommendationData
+): Promise<string> {
+  const dataBlock = `
+Product: ${data.productTitle}${data.productCategory ? ` (${data.productCategory})` : ""}
+Current price: $${data.currentPrice.toFixed(2)}
+
+OpenBy Index: ${data.openByIndex}/100
+
+LLM buy scores: ${data.llmScore}/100
+- OpenAI: ${data.llmAssessments.openai ?? "—"}
+- Gemini: ${data.llmAssessments.gemini ?? "—"}
+- Claude: ${data.llmAssessments.claude ?? "—"}
+
+News score: ${data.newsScore}/100. ${data.newsAnalysis ?? ""}
+${data.newsHeadlines?.length ? `Headlines: ${data.newsHeadlines.slice(0, 5).join("; ")}` : ""}
+
+Social media score: ${data.socialScore}/100. ${data.socialAnalysis ?? ""}
+
+Inflation score: ${data.inflationScore}/100. ${data.inflationLatest != null ? `Latest inflation: ${data.inflationLatest}%` : ""}
+
+Search trend score: ${data.searchTrendScore}/100
+
+Volatility score: ${data.volatilityScore}/100. ${data.volatilityPercent != null ? `Volatility: ${(data.volatilityPercent * 100).toFixed(2)}%` : ""}
+
+Moving average score: ${data.maScore}/100. MA(7): ${data.ma7 != null ? `$${data.ma7.toFixed(2)}` : "—"}. MA(60): ${data.ma60 != null ? `$${data.ma60.toFixed(2)}` : "—"}. ${data.priceAboveMa7 != null ? `Price ${data.priceAboveMa7 ? "above" : "below"} MA(7).` : ""} ${data.priceAboveMa60 != null ? `Price ${data.priceAboveMa60 ? "above" : "below"} MA(60).` : ""}
+
+7-day price change: ${data.priceChange7d ?? "no data"}
+`.trim();
+
+  const systemPrompt = `You are a product buying advisor. Your task is to write 2-3 sentences explaining why this is or is not a good time to buy the product. CRITICAL: Cite ONLY facts and numbers from the data provided below. Do not add any information, assumptions, or claims not present in the data. Be concise and specific.`;
+
+  const userPrompt = `Based ONLY on this data, write 2-3 sentences explaining the buy recommendation:\n\n${dataBlock}`;
+
+  try {
+    const result = await generate(userPrompt, {
+      systemPrompt,
+      model: "google/gemini-2.0-flash-001",
+      temperature: 0.3,
+      maxTokens: 200,
+    });
+    return result?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export type RefreshPriceResult =
+  | { ok: true; price: number; message?: string }
+  | { ok: false; error: string };
+
+/**
+ * Fetch current price from PriceAPI and store in price_history.
+ * Use product ASIN for Amazon lookup, or product title as keyword fallback.
+ */
+export async function refreshProductPrice(
+  productId: string,
+  asin: string | null,
+  productTitle: string
+): Promise<RefreshPriceResult> {
+  const result = await fetchProductPrice({
+    asin: asin ?? undefined,
+    keyword: !asin ? productTitle : undefined,
+    source: "amazon",
+    country: "us",
+  });
+
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
+  const today = new Date().toISOString().split("T")[0] ?? "";
+
+  const { error: insertError } = await supabase.from("price_history").insert({
+    product_id: productId,
+    price: result.price,
+    date: today,
+  });
+
+  if (insertError) {
+    return { ok: false, error: `Failed to save: ${insertError.message}` };
+  }
+
+  await supabase
+    .from("products")
+    .update({ current_price: result.price })
+    .eq("id", productId);
+
+  return {
+    ok: true,
+    price: result.price,
+    message: `Price $${result.price.toFixed(2)} saved. Refresh the page to see updated charts.`,
+  };
 }
 
 export async function getProductSearchTrends(

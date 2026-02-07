@@ -131,12 +131,12 @@ export function HeroSearch() {
       ))}
 
       {/* Content */}
-      <div className="relative z-10 flex w-full max-w-2xl flex-col items-center gap-10">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <h1 className="bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-600 bg-clip-text pt-1 pb-1 text-5xl font-bold tracking-tight text-transparent drop-shadow-sm sm:text-7xl">
+      <div className="relative z-10 flex w-full max-w-2xl flex-col items-center gap-10 pb-16">
+        <div className="flex flex-col items-center gap-3 text-center pb-8">
+          <h1 className="bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-600 bg-clip-text pt-1 pb-2.5 text-5xl font-bold tracking-tight text-transparent drop-shadow-sm sm:text-7xl">
             OpenBy
           </h1>
-          <p className="text-lg text-zinc-600 sm:text-xl">
+          <p className="-mt-1 text-lg text-zinc-600 sm:text-xl">
             AI-Powered Price Tracking
           </p>
         </div>
@@ -164,7 +164,7 @@ export function HeroSearch() {
         className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 rounded-full bg-white/70 p-2.5 text-zinc-500 shadow-lg backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:bg-white hover:text-zinc-800 hover:shadow-xl"
         aria-label="Scroll down"
       >
-        <ChevronDown className="h-6 w-6 animate-bounce" />
+        <ChevronDown className="h-6 w-6 animate-scroll-down" />
       </a>
     </section>
   );

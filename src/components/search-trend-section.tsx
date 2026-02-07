@@ -166,7 +166,7 @@ export function SearchTrendSection({
           >
             Source: Google Trends
             {keywordUsed && (
-              <span className="max-w-[10rem] truncate text-zinc-400" title={keywordUsed}>
+              <span className="text-zinc-400">
                 ({keywordUsed})
               </span>
             )}

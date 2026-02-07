@@ -69,7 +69,9 @@ const PRODUCT_TYPE_WORDS = new Set([
 
 /** Extract descriptor + product-type phrases from title (e.g. "wireless mechanical keyboard") */
 function extractDescriptorPhrases(title: string, categoryKeyword: string | null): string[] {
-  const lower = title.toLowerCase().replace(/\([^)]*\)/g, "");
+  const lower = title.toLowerCase()
+    .replace(/\([^)]*\)/g, "")
+    .replace(/["'`]/g, ""); // strip quotes early to avoid bad keywords
   const words = lower
     .replace(/[\d."]+/g, " ")
     .split(/\s+/)
@@ -118,6 +120,7 @@ function extractDescriptorPhrases(title: string, categoryKeyword: string | null)
 function getProductNameKeywords(productName: string): string[] {
   const words = productName
     .replace(/\([^)]*\)/g, "")
+    .replace(/["'`]/g, "")
     .split(/\s+/)
     .filter((w) => w.length > 1 && !/^\d+$/.test(w));
   const result: string[] = [];
@@ -129,8 +132,8 @@ function getProductNameKeywords(productName: string): string[] {
 }
 
 /**
- * Build keyword candidates. Prioritize descriptor+type phrases (e.g. "wireless mechanical keyboard"),
- * then brand+category, category, and product name variations.
+ * Build keyword candidates. Prioritize category so trends always work
+ * (category terms like "keyboard", "headphones" are reliable in Google Trends).
  */
 function buildKeywordCandidates(
   productName: string,
@@ -139,29 +142,24 @@ function buildKeywordCandidates(
   const candidates: string[] = [];
   const catKeyword = getCategoryTrendKeyword(category);
   const brand = extractBrand(productName);
-
-  // 1. Descriptor + product type (e.g. "wireless mechanical keyboard", "noise cancelling headphones")
   const descriptorPhrases = extractDescriptorPhrases(productName, catKeyword ?? null);
-  for (const p of descriptorPhrases) {
-    if (p.length >= 4) candidates.push(p);
-  }
 
-  // 2. Brand + category
-  if (brand && catKeyword) {
-    candidates.push(`${brand} ${catKeyword}`);
-  }
-
-  // 3. Category
+  // 1. Category first – most reliable, works always
   if (catKeyword) {
     candidates.push(catKeyword);
   }
 
-  // 4. Product name phrases (2–4 words)
-  for (const kw of getProductNameKeywords(productName)) {
-    if (!candidates.includes(kw)) candidates.push(kw);
+  // 2. Descriptor + product type (e.g. "wireless mechanical keyboard")
+  for (const p of descriptorPhrases) {
+    if (p.length >= 4 && !candidates.includes(p)) candidates.push(p);
   }
 
-  // 5. Brand + descriptor + type (e.g. "Keychron mechanical keyboard")
+  // 3. Brand + category
+  if (brand && catKeyword) {
+    candidates.push(`${brand} ${catKeyword}`);
+  }
+
+  // 4. Brand + descriptor + type
   if (brand) {
     for (const p of descriptorPhrases) {
       if (p.length >= 4 && !candidates.includes(`${brand} ${p}`)) {
@@ -170,7 +168,21 @@ function buildKeywordCandidates(
     }
   }
 
+  // 5. Product name phrases – fallback
+  for (const kw of getProductNameKeywords(productName)) {
+    if (!candidates.includes(kw)) candidates.push(kw);
+  }
+
   return [...new Set(candidates)];
+}
+
+/** Sanitize keyword for Google Trends API - removes chars that cause 400 Bad Request */
+function sanitizeKeyword(keyword: string): string {
+  return keyword
+    .replace(/["'`]/g, "") // strip quotes that break requests
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 100); // Google has max length limits
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -192,23 +204,37 @@ async function fetchTrendsForKeyword(keyword: string): Promise<{
   dataPoints: TrendDataPoint[];
   score: number;
 }> {
+  const sanitized = sanitizeKeyword(keyword);
+  if (!sanitized || sanitized.length < 2) {
+    return { dataPoints: [], score: 50 };
+  }
+
   const endTime = new Date();
   const startTime = new Date();
   startTime.setMonth(startTime.getMonth() - 1); // 1 month for faster, more reliable response
 
-  const res = await googleTrends.interestOverTime({
-    keyword,
-    startTime,
-    endTime,
-    geo: "US",
-    agent: httpsAgent,
-  });
+  let res: unknown;
+  try {
+    res = await googleTrends.interestOverTime({
+      keyword: sanitized,
+      startTime,
+      endTime,
+      geo: "US",
+      agent: httpsAgent,
+    });
+  } catch {
+    return { dataPoints: [], score: 50 };
+  }
+
+  const str = typeof res === "string" ? res : String(res);
+  if (str.startsWith("<") || str.startsWith("<!") || str.includes("<HTML>") || str.includes("<html")) {
+    return { dataPoints: [], score: 50 };
+  }
 
   type TimelinePoint = { time: string; formattedTime: string; formattedAxisTime: string; value?: (number | string)[] };
   let timelineData: TimelinePoint[] = [];
   try {
-    const str = typeof res === "string" ? res : String(res);
-    const jsonStr = str.startsWith(")") || str.startsWith("<") ? str.slice(Math.max(str.indexOf("{"), 0)) : str;
+    const jsonStr = str.startsWith(")") ? str.slice(Math.max(str.indexOf("{"), 0)) : str;
     const parsed = JSON.parse(jsonStr) as { default?: { timelineData?: TimelinePoint[] }; timelineData?: TimelinePoint[] };
     timelineData = parsed?.default?.timelineData ?? parsed?.timelineData ?? [];
   } catch {
@@ -246,7 +272,10 @@ export async function getGoogleTrendsData(
   productName: string,
   category?: string | null
 ): Promise<GoogleTrendsResult> {
-  const keywords = buildKeywordCandidates(productName, category);
+  const rawKeywords = buildKeywordCandidates(productName, category);
+  const keywords = [...new Set(rawKeywords
+    .map(sanitizeKeyword)
+    .filter((k) => k.length >= 2))];
 
   for (const keyword of keywords) {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -256,7 +285,6 @@ export async function getGoogleTrendsData(
           REQUEST_TIMEOUT_MS
         );
 
-        // Accept any result with at least 1 data point
         if (dataPoints.length > 0) {
           return {
             score,
@@ -264,15 +292,14 @@ export async function getGoogleTrendsData(
             keywordUsed: keyword,
           };
         }
-      } catch (err) {
+      } catch {
         if (attempt === MAX_RETRIES) {
-          console.warn(`Google Trends failed for keyword "${keyword}":`, err);
           break;
         }
-        // Brief delay before retry
-        await new Promise((r) => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 600));
       }
     }
+    await new Promise((r) => setTimeout(r, 400)); // delay between keywords to reduce 400s
   }
 
   // All keywords failed – return neutral default, no generic fallback used

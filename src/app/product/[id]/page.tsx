@@ -14,13 +14,20 @@ import {
   Gamepad2,
   Tv,
   ArrowRight,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
-import { getProductById, getRelatedProducts, getBestDeals, getLLMProductScores, getProductSearchTrends, getCanadaInflation } from "@/app/actions";
+import { getProductById, getRelatedProducts, getBestDeals, getLLMProductScores, getProductSearchTrends, getCanadaInflation, getRelatedNews, getSocialMediaPresence, getProductVolatility, getProductMovingAverage, generateBuyRecommendationExplanation } from "@/app/actions";
 import { BuySpectrum } from "@/components/buy-spectrum";
 import { BestDealsSlideshow } from "@/components/best-deals-slideshow";
 import { LLMScoreSection } from "@/components/llm-score-section";
+import { ProductQASection } from "@/components/product-qa-section";
 import { SearchTrendSection } from "@/components/search-trend-section";
+import { VolatilityScoreSection } from "@/components/volatility-score-section";
+import { MovingAverageScoreSection } from "@/components/moving-average-score-section";
 import { InflationScoreSection } from "@/components/inflation-score-section";
+import { RelatedNewsSection } from "@/components/related-news-section";
+import { SocialMediaPresenceSection } from "@/components/social-media-presence-section";
 import { IndexBreakdownTable } from "@/components/index-breakdown-table";
 import { CATEGORIES } from "@/lib/categories";
 import {
@@ -58,22 +65,29 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const title = product.title ?? "";
   const description = product.description ?? "";
 
-  const [{ openai, gemini, claude, llmScore }, searchTrendResult, inflationResult] = await Promise.all([
+  const currentPrice = Number(product.current_price) || 0;
+  const priceHistory = (product.price_history ?? []) as Array<{ price: number; date?: string }>;
+
+  const [{ openai, gemini, claude, llmScore }, searchTrendResult, inflationResult, newsResult, socialResult, volatilityResult, movingAverageResult] = await Promise.all([
     getLLMProductScores(title, description),
     getProductSearchTrends(title, product.category),
     getCanadaInflation(),
+    getRelatedNews(title),
+    getSocialMediaPresence(title),
+    getProductVolatility(product.id, currentPrice, priceHistory),
+    getProductMovingAverage(product.id, currentPrice, priceHistory),
   ]);
 
   const searchTrendScore = searchTrendResult.score;
 
   const breakdown = buildIndexBreakdown({
     llmScore,
-    relatedNews: 100,
+    relatedNews: newsResult.score,
     inflationScore: inflationResult.score,
     predictedPrice: 100,
-    movingAverage: 100,
-    volatility: 100,
-    socialMediaPresence: 100,
+    movingAverage: movingAverageResult.score,
+    volatility: volatilityResult.score,
+    socialMediaPresence: socialResult.score,
     searchTrend: searchTrendScore,
   });
 
@@ -84,16 +98,71 @@ export default async function ProductPage({ params }: ProductPageProps) {
     relatedProducts = (await getBestDeals(12)).filter((p) => p.id !== id);
   }
 
+  // 7-day price change: compare oldest vs newest in last 7 days
+  const now = new Date();
+  const cutoff = new Date(now);
+  cutoff.setDate(cutoff.getDate() - 7);
+  const cutoffStr = cutoff.toISOString().split("T")[0] ?? "";
+  const recentHistory = (priceHistory ?? [])
+    .filter((p) => typeof p.price === "number" && (p.date ?? "") >= cutoffStr)
+    .sort((a, b) => ((a.date ?? "") < (b.date ?? "") ? -1 : 1));
+  let priceChange7d: "up" | "down" | null = null;
+  if (recentHistory.length >= 2) {
+    const oldP = recentHistory[0]!.price;
+    const newP = recentHistory[recentHistory.length - 1]!.price;
+    if (newP > oldP) priceChange7d = "up";
+    else if (newP < oldP) priceChange7d = "down";
+  }
+
+  const buyExplanation = await generateBuyRecommendationExplanation({
+    productTitle: title,
+    productCategory: product.category,
+    currentPrice,
+    openByIndex,
+    llmScore,
+    llmAssessments: {
+      openai: openai.text || undefined,
+      gemini: gemini.text || undefined,
+      claude: claude.text || undefined,
+    },
+    newsScore: newsResult.score,
+    newsAnalysis: newsResult.analysis,
+    newsHeadlines: newsResult.items?.map((i) => i.title ?? i.snippet).filter(Boolean),
+    socialScore: socialResult.score,
+    socialAnalysis: socialResult.analysis,
+    inflationScore: inflationResult.score,
+    inflationLatest: inflationResult.latestValue,
+    searchTrendScore: searchTrendResult.score,
+    volatilityScore: volatilityResult.score,
+    volatilityPercent: volatilityResult.volatility,
+    maScore: movingAverageResult.score,
+    ma7: movingAverageResult.ma7,
+    ma60: movingAverageResult.ma60,
+    priceAboveMa7: movingAverageResult.priceAboveMa7,
+    priceAboveMa60: movingAverageResult.priceAboveMa60,
+    priceChange7d,
+  });
+
   return (
     <div className="min-h-screen">
       {/* Hero: Image, Name, Price, Score */}
-      <div className="relative border-b border-zinc-200/80 bg-gradient-to-b from-blue-50/50 via-indigo-50/20 to-white">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_20%_30%,rgba(59,130,246,0.2),rgba(99,102,241,0.1),transparent_60%)]" />
+      <div className="relative overflow-hidden border-b border-zinc-200/80">
+        {/* Blurred product image as background */}
+        <div className="absolute inset-0 -z-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={product.image_url ?? "https://placehold.co/600"}
+            alt=""
+            className="h-full w-full object-cover blur-2xl scale-110 opacity-30"
+            aria-hidden
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/90 via-white/70 to-white" />
+        </div>
         <div className="relative mx-auto max-w-6xl px-6 py-12">
           <div className="grid gap-12 lg:grid-cols-5">
             {/* Image */}
             <div className="lg:col-span-2">
-              <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-zinc-100 shadow-lg">
+              <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-zinc-100 shadow-lg ring-1 ring-zinc-200/50">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={product.image_url ?? "https://placehold.co/600"}
@@ -104,42 +173,83 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </div>
             </div>
 
-            {/* Title, Price, Score */}
+            {/* Title, Category, Description, Price */}
             <div className="flex flex-col gap-6 lg:col-span-3">
               <div>
                 <h1 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
                   {product.title}
                 </h1>
-                {description && (
-                  <p className="mt-3 text-zinc-600 leading-relaxed">{description}</p>
-                )}
-                <p className="mt-4 text-3xl font-bold text-zinc-900">
-                  ${Number(product.current_price).toFixed(2)}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2 text-white shadow-md">
-                  <span className="text-xs font-medium opacity-90">OpenBy Index</span>
-                  <p className="text-2xl font-bold">{openByIndex}</p>
-                </div>
                 {product.category && (
-                  <span className="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-700">
+                  <span className="mt-2 inline-block rounded-lg bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700">
                     {product.category}
                   </span>
                 )}
+                {description && (
+                  <p className="mt-3 text-zinc-600 leading-relaxed">{description}</p>
+                )}
+                <div className="mt-4">
+                  <span className="text-sm font-medium text-zinc-500">Current Price</span>
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <p className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl">
+                      ${Number(product.current_price).toFixed(2)}
+                    </p>
+                    {priceChange7d && (
+                      <span
+                        className={`flex items-center gap-1.5 text-sm font-semibold ${
+                          priceChange7d === "up" ? "text-red-600" : "text-green-600"
+                        }`}
+                      >
+                        {priceChange7d === "up" ? (
+                          <ArrowUp className="h-4 w-4 shrink-0" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4 shrink-0" />
+                        )}
+                        <span>
+                          {priceChange7d === "up" ? "Up" : "Down"} in past 7 days
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-
-              <BuySpectrum score={openByIndex} label="Buy Now Recommendation" />
-
-              <IndexBreakdownTable breakdown={breakdown} totalScore={openByIndex} />
             </div>
+          </div>
+          {/* Full-width Buy Now Recommendation */}
+          <div className="mt-8">
+            <BuySpectrum score={openByIndex} label="Buy Now Recommendation" explanation={buyExplanation} />
           </div>
         </div>
       </div>
 
+      {/* OpenBy Index Calculation - Full-width section */}
+      <section className="w-full border-b border-zinc-200/80 bg-zinc-50/50 py-10">
+        <div className="px-6 sm:px-8 lg:px-12">
+          <IndexBreakdownTable breakdown={breakdown} totalScore={openByIndex} />
+        </div>
+      </section>
+
       {/* LLM Score Section */}
       <LLMScoreSection openai={openai} gemini={gemini} claude={claude} />
+
+      {/* Product Q&A - Ask specific question */}
+      <ProductQASection productTitle={title} productDescription={description} />
+
+      {/* Related News Section */}
+      <RelatedNewsSection
+        items={newsResult.items}
+        score={newsResult.score}
+        analysis={newsResult.analysis}
+        error={newsResult.error}
+      />
+
+      {/* Social Media Presence Section */}
+      <SocialMediaPresenceSection
+        items={socialResult.items}
+        score={socialResult.score}
+        analysis={socialResult.analysis}
+        virality={socialResult.virality}
+        error={socialResult.error}
+      />
 
       {/* Inflation Score Section */}
       <InflationScoreSection
@@ -155,6 +265,32 @@ export default async function ProductPage({ params }: ProductPageProps) {
         dataPoints={searchTrendResult.dataPoints}
         error={searchTrendResult.error}
         keywordUsed={searchTrendResult.keywordUsed}
+      />
+
+      {/* Moving Average Score Section */}
+      <MovingAverageScoreSection
+        score={movingAverageResult.score}
+        currentPrice={movingAverageResult.currentPrice}
+        ma7={movingAverageResult.ma7}
+        ma60={movingAverageResult.ma60}
+        ma7ZScore={movingAverageResult.ma7ZScore}
+        ma60ZScore={movingAverageResult.ma60ZScore}
+        ma7StdDev={movingAverageResult.ma7StdDev}
+        ma60StdDev={movingAverageResult.ma60StdDev}
+        priceAboveMa7={movingAverageResult.priceAboveMa7}
+        priceAboveMa60={movingAverageResult.priceAboveMa60}
+        dataPoints={movingAverageResult.dataPoints}
+        isMockData={movingAverageResult.isMockData}
+        error={movingAverageResult.error}
+      />
+
+      {/* Volatility Score Section */}
+      <VolatilityScoreSection
+        score={volatilityResult.score}
+        volatility={volatilityResult.volatility}
+        dataPoints={volatilityResult.dataPoints}
+        isMockData={volatilityResult.isMockData}
+        error={volatilityResult.error}
       />
 
       {/* Related / Best Deals Slideshow */}

@@ -76,13 +76,14 @@ export function InflationScoreSection({
           </div>
 
           {/* Chart */}
-          <div className="min-h-[300px] flex-1 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/80 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-sm">
+          <div className="flex-1 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/80 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-sm">
             {error ? (
-              <div className="flex h-72 items-center justify-center rounded-xl bg-zinc-50/50">
+              <div className="flex h-32 items-center justify-center rounded-xl bg-zinc-50/50">
                 <p className="text-sm text-zinc-500">{error}</p>
               </div>
             ) : chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
+              <div className="aspect-[3/1] w-full min-h-[180px]">
+                <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 12, right: 12, left: 0, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="4 4" stroke="#e4e4e7" vertical={false} />
                   <XAxis
@@ -94,7 +95,13 @@ export function InflationScoreSection({
                       return m ? `${m}/${y?.slice(2)}` : v;
                     }}
                   />
-                  <YAxis stroke="#71717a" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} width={36} />
+                  <YAxis
+                    stroke="#71717a"
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => `${v}%`}
+                    width={36}
+                    domain={[0, 3]}
+                  />
                   <Tooltip
                     contentStyle={{
                       borderRadius: "12px",
@@ -115,8 +122,9 @@ export function InflationScoreSection({
                   />
                 </LineChart>
               </ResponsiveContainer>
+              </div>
             ) : (
-              <div className="flex h-72 items-center justify-center rounded-xl bg-zinc-50/50">
+              <div className="flex h-32 items-center justify-center rounded-xl bg-zinc-50/50">
                 <p className="text-sm text-zinc-500">No inflation data available</p>
               </div>
             )}

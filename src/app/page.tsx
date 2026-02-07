@@ -143,14 +143,18 @@ export default async function Home() {
             {FAQ_ITEMS.map(({ question, answer }) => (
               <details
                 key={question}
-                className="group rounded-xl border border-zinc-200/80 bg-white shadow-sm transition-all [&[open]]:shadow-md [&[open]]:ring-1 [&[open]]:ring-blue-500/10"
+                className="group faq-details rounded-xl border border-zinc-200/80 bg-white shadow-sm transition-all duration-300 [&[open]]:shadow-md [&[open]]:ring-1 [&[open]]:ring-blue-500/10"
               >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 font-medium text-zinc-900 [&::-webkit-details-marker]:hidden hover:text-zinc-700">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 font-medium text-zinc-900 transition-colors duration-200 [&::-webkit-details-marker]:hidden hover:text-zinc-700">
                   {question}
-                  <ChevronDown className="h-5 w-5 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" />
+                  <ChevronDown className="h-5 w-5 shrink-0 text-zinc-400 transition-transform duration-300 ease-out group-open:rotate-180" />
                 </summary>
-                <div className="border-t border-zinc-100 px-6 py-5 text-zinc-600 leading-relaxed">
-                  {answer}
+                <div className="faq-content-wrapper">
+                  <div className="faq-content-inner">
+                    <div className="border-t border-zinc-100 px-6 py-5 text-zinc-600 leading-relaxed">
+                      {answer}
+                    </div>
+                  </div>
                 </div>
               </details>
             ))}

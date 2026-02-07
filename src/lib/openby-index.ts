@@ -35,6 +35,25 @@ const CATEGORY_LABELS: Record<IndexCategory, string> = {
   searchTrend: "Search Trend",
 };
 
+export const CATEGORY_DESCRIPTIONS: Record<IndexCategory, string> = {
+  relatedNews:
+    "News sentiment reflects whether recent articles are positive or negative, which can influence short-term price movements. More recent news matters more than old news, since fresh information impacts prices faster.",
+  inflationScore:
+    "Inflation indicates how purchasing power and overall prices are changing, which affects demand and future pricing.",
+  predictedPrice:
+    "The predicted future price using our AI model estimates where the product is heading, helping determine if buying now is cheaper than waiting.",
+  llmScore:
+    "The LLM score summarizes qualitative factors (product quality, market buzz, risks) that numbers alone may miss.",
+  movingAverage:
+    "The moving average shows whether the current price is low or high compared to its recent trend.",
+  volatility:
+    "Predicted volatility measures how much the price is expected to fluctuate, indicating how risky it is to buy now.",
+  socialMediaPresence:
+    "Virality score from reach, engagement (E = likes + 2×comments + 3×shares), engagement rate, growth rate, and network amplification. V = 0.5×ER + 0.3×G + 0.2×N.",
+  searchTrend:
+    "Google Trends shows whether search interest is rising or falling, which often precedes changes in demand.",
+};
+
 export function buildIndexBreakdown(scores: Partial<Record<IndexCategory, number>>): IndexBreakdown[] {
   const breakdown: IndexBreakdown[] = [];
 
