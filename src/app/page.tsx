@@ -1,65 +1,159 @@
+import Link from "next/link";
 import Image from "next/image";
+import { ChevronDown } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { getBestDeals } from "@/app/actions";
+import { CategorySlideshow } from "@/components/category-slideshow";
+import { HeroSearch } from "@/components/hero-search";
+import { CATEGORIES } from "@/lib/categories";
 
-export default function Home() {
+const FAQ_ITEMS = [
+  {
+    question: "How accurate is the price prediction?",
+    answer:
+      "Our AI analyzes historical price trends and market data to provide accurate buy recommendations. We track price fluctuations over 30+ days to identify the best time to purchase.",
+  },
+  {
+    question: "Do you track all Amazon products?",
+    answer:
+      "We currently track a curated selection of tech products including laptops, monitors, phones, and components. New products are added as you search—try searching for any tech product to get started.",
+  },
+  {
+    question: "Is this free to use?",
+    answer:
+      "Yes! OpenBy is completely free to use. Search for products, view price history, and get AI-powered buy recommendations at no cost.",
+  },
+  {
+    question: "How often is the price data updated?",
+    answer:
+      "We collect and update price data daily. Our 30-day price history charts reflect the most recent trends, so you can make informed decisions based on up-to-date information.",
+  },
+  {
+    question: "Can I set up price alerts?",
+    answer:
+      "Price alerts are on our roadmap! For now, bookmark products you're interested in and check back regularly. Our AI Score helps you know when it's a good time to buy at a glance.",
+  },
+  {
+    question: "Where does the data come from?",
+    answer:
+      "We aggregate price data from trusted sources and apply our AI models to analyze trends. Our algorithms factor in seasonal patterns, historical lows, and market conditions to generate buy recommendations.",
+  },
+];
+
+export default async function Home() {
+  const bestDeals = await getBestDeals();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="bg-white">
+      <HeroSearch />
+
+      {/* Section 2: Trending Categories */}
+      <section id="categories" className="relative overflow-visible border-t border-zinc-200/80 bg-gradient-to-b from-blue-50/40 via-indigo-50/20 to-white py-24">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(59,130,246,0.18),rgba(99,102,241,0.06),transparent_70%)]" />
+        <div className="relative mx-auto max-w-6xl px-12 sm:px-16">
+          <div className="mb-14 text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+              Browse by Category
+            </h2>
+            <p className="mt-3 text-zinc-600">
+              Find the best deals across tech categories
+            </p>
+          </div>
+          <CategorySlideshow categories={CATEGORIES} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* Section 3: Best AI Picks */}
+      <section id="best-deals" className="relative border-t border-zinc-200/80 bg-gradient-to-b from-zinc-50 to-indigo-50/30 py-24">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_100%_60%_at_50%_50%,rgba(99,102,241,0.15),rgba(59,130,246,0.08),transparent_65%)]" />
+        <div className="relative mx-auto max-w-6xl px-6">
+          <div className="mb-14 text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+              Best Time to Buy
+            </h2>
+            <p className="mt-3 text-zinc-600">
+              AI-recommended deals based on price trends
+            </p>
+          </div>
+          {bestDeals.length > 0 ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {bestDeals.map((product) => (
+                <Link key={product.id} href={`/product/${product.id}`}>
+                  <Card className="group h-full overflow-hidden border-zinc-200/80 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-zinc-300 hover:shadow-xl">
+                    <div className="relative aspect-square w-full bg-gradient-to-br from-zinc-50 to-zinc-100">
+                      <Image
+                        src={product.image_url ?? "https://placehold.co/400"}
+                        alt={product.title}
+                        fill
+                        unoptimized
+                        className="object-contain p-5 transition-transform duration-300 group-hover:scale-105"
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      />
+                    </div>
+                    <CardContent className="flex flex-col gap-4 p-5">
+                      <h3 className="line-clamp-2 font-medium text-zinc-900">
+                        {product.title}
+                      </h3>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xl font-bold text-zinc-900">
+                          ${Number(product.current_price).toFixed(2)}
+                        </p>
+                        <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm">
+                          AI Score: {product.ai_score ?? "—"}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50/50 py-16 text-center">
+              <p className="text-zinc-600">
+                No deals yet. Search for products to get AI-powered recommendations!
+              </p>
+              <Link
+                href="/"
+                className="mt-4 inline-block font-medium text-blue-600 hover:underline"
+              >
+                Start searching →
+              </Link>
+            </div>
+          )}
         </div>
-      </main>
+      </section>
+
+      {/* Section 4: FAQ */}
+      <section className="relative border-t border-zinc-200/80 bg-gradient-to-b from-indigo-50/30 via-blue-50/40 to-white py-24">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_110%,rgba(59,130,246,0.16),rgba(168,85,247,0.06),transparent_70%)]" />
+        <div className="relative mx-auto max-w-3xl px-6">
+          <div className="mb-14 text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
+              How it Works
+            </h2>
+            <p className="mt-3 text-zinc-600">
+              Everything you need to know about OpenBy
+            </p>
+          </div>
+          <div className="space-y-3">
+            {FAQ_ITEMS.map(({ question, answer }) => (
+              <details
+                key={question}
+                className="group rounded-xl border border-zinc-200/80 bg-white shadow-sm transition-all [&[open]]:shadow-md [&[open]]:ring-1 [&[open]]:ring-blue-500/10"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 font-medium text-zinc-900 [&::-webkit-details-marker]:hidden hover:text-zinc-700">
+                  {question}
+                  <ChevronDown className="h-5 w-5 shrink-0 text-zinc-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="border-t border-zinc-100 px-6 py-5 text-zinc-600 leading-relaxed">
+                  {answer}
+                </div>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
