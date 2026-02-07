@@ -8,6 +8,8 @@ import { CATEGORIES } from "@/lib/categories";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 2;
+/** Offset applied to all trend values so scores don't appear inflated */
+const TREND_OFFSET = 15;
 
 export type TrendDataPoint = {
   date: string;
@@ -116,7 +118,7 @@ async function fetchTrendsForKeyword(keyword: string): Promise<{
 }> {
   const endTime = new Date();
   const startTime = new Date();
-  startTime.setMonth(startTime.getMonth() - 1);
+  startTime.setMonth(startTime.getMonth() - 3); // 3 months for more valid, less noisy data
 
   const res = await googleTrends.interestOverTime({
     keyword,
@@ -163,7 +165,7 @@ async function fetchTrendsForKeyword(keyword: string): Promise<{
 }
 
 /**
- * Fetch Google Trends interest over time for the past month.
+ * Fetch Google Trends interest over time for the past 3 months.
  * Tries multiple keyword strategies and uses the best result.
  */
 export async function getGoogleTrendsData(

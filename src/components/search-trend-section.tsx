@@ -7,8 +7,10 @@ import {
   YAxis,
   CartesianGrid,
   ResponsiveContainer,
+  Tooltip,
 } from "recharts";
 import type { TrendDataPoint } from "@/lib/google-trends";
+import { TrendingUp } from "lucide-react";
 
 type SearchTrendSectionProps = {
   score: number;
@@ -28,53 +30,67 @@ export function SearchTrendSection({
 
   const scoreColor =
     score >= 70
-      ? "bg-emerald-100 text-emerald-700"
+      ? "from-emerald-500/90 to-teal-500/90"
       : score >= 40
-        ? "bg-amber-100 text-amber-700"
-        : "bg-rose-100 text-rose-700";
+        ? "from-amber-500/90 to-orange-500/90"
+        : "from-rose-500/90 to-pink-500/90";
 
   return (
-    <section className="relative border-b border-zinc-200/80 bg-gradient-to-b from-white to-indigo-50/40 py-16">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_100%_60%_at_50%_50%,rgba(99,102,241,0.08),transparent_60%)]" />
+    <section className="relative overflow-hidden border-b border-zinc-200/80 py-16">
+      {/* Background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-slate-50/80 via-white to-indigo-50/30" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_20%,rgba(99,102,241,0.06),transparent_70%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_80%_80%,rgba(139,92,246,0.05),transparent_70%)]" />
+
       <div className="relative mx-auto max-w-6xl px-6">
-        <div className="mb-10 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
-            Search Trend
-          </h2>
-          <p className="mx-auto mt-2 max-w-2xl text-zinc-600">
-            Google search interest for this product over the past month. Higher
-            sustained interest can indicate demand; we factor this into the
-            OpenBy Index to help you decide when to buy.
-          </p>
+        {/* Header */}
+        <div className="mb-12 flex flex-col items-center gap-4 sm:flex-row sm:justify-center sm:gap-6">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 ring-1 ring-indigo-500/20">
+            <TrendingUp className="h-7 w-7 text-indigo-600" />
+          </div>
+          <div className="text-center sm:text-left">
+            <h2 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
+              Search Trend
+            </h2>
+            <p className="mt-1.5 max-w-xl text-zinc-600">
+              Google search interest over the past 3 months. We adjust for
+              baseline to avoid inflated scores and factor this into the OpenBy
+              Index.
+            </p>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-stretch lg:gap-10">
           {/* Score card */}
-          <div className="flex shrink-0 flex-col items-center gap-2 rounded-xl border border-zinc-200/80 bg-white px-8 py-6 shadow-sm lg:w-48">
-            <span className="text-sm font-medium text-zinc-600">
+          <div className="flex shrink-0 flex-col items-center justify-center gap-4 rounded-2xl border border-zinc-200/80 bg-white/80 px-8 py-8 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-sm lg:w-56">
+            <span className="text-sm font-medium text-zinc-500">
               Search Trend Score
             </span>
-            <span
-              className={`inline-flex min-w-[4rem] items-center justify-center rounded-lg px-4 py-3 text-2xl font-bold ${scoreColor}`}
+            <div
+              className={`flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br ${scoreColor} shadow-lg shadow-black/5`}
             >
-              {score}
-            </span>
+              <span className="text-3xl font-bold text-white drop-shadow-sm">
+                {score}
+              </span>
+            </div>
             {error && (
-              <p className="text-xs text-amber-600">Using neutral (fetch failed)</p>
+              <p className="text-center text-xs text-amber-600">
+                Using neutral (fetch failed)
+              </p>
             )}
           </div>
 
           {/* Chart */}
-          <div className="min-h-[280px] flex-1 rounded-xl border border-zinc-200/80 bg-white p-4 shadow-sm">
+          <div className="min-h-[300px] flex-1 overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/80 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_12px_rgba(0,0,0,0.03)] backdrop-blur-sm">
             {error ? (
-              <div className="flex h-64 items-center justify-center text-zinc-500">
-                <p className="text-sm">{error}</p>
+              <div className="flex h-72 items-center justify-center rounded-xl bg-zinc-50/50">
+                <p className="text-sm text-zinc-500">{error}</p>
               </div>
             ) : chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={280}>
                 <AreaChart
                   data={chartData}
-                  margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                  margin={{ top: 12, right: 12, left: 0, bottom: 8 }}
                 >
                   <defs>
                     <linearGradient
@@ -84,44 +100,53 @@ export function SearchTrendSection({
                       x2="0"
                       y2="1"
                     >
-                      <stop
-                        offset="0%"
-                        stopColor="#6366f1"
-                        stopOpacity={0.4}
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor="#6366f1"
-                        stopOpacity={0}
-                      />
+                      <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
+                      <stop offset="50%" stopColor="#8b5cf6" stopOpacity={0.15} />
+                      <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="#e5e5e5"
+                    strokeDasharray="4 4"
+                    stroke="#e4e4e7"
+                    vertical={false}
                   />
                   <XAxis
                     dataKey="date"
-                    stroke="#737373"
+                    stroke="#71717a"
                     tick={{ fontSize: 11 }}
+                    axisLine={{ stroke: "#e4e4e7" }}
+                    tickLine={false}
                   />
                   <YAxis
-                    stroke="#737373"
-                    tick={{ fontSize: 12 }}
-                    domain={[0, 100]}
+                    stroke="#71717a"
+                    tick={{ fontSize: 11 }}
+                    domain={[0, 85]}
+                    axisLine={false}
+                    tickLine={false}
+                    width={28}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: "12px",
+                      border: "1px solid #e4e4e7",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                      padding: "10px 14px",
+                    }}
+                    formatter={(value: number) => [value, "Interest"]}
+                    labelFormatter={(label) => label}
                   />
                   <Area
                     type="monotone"
                     dataKey="value"
                     stroke="#6366f1"
-                    strokeWidth={2}
+                    strokeWidth={2.5}
                     fill="url(#trendGradient)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-64 items-center justify-center text-zinc-500">
-                <p className="text-sm">No trend data available</p>
+              <div className="flex h-72 items-center justify-center rounded-xl bg-zinc-50/50">
+                <p className="text-sm text-zinc-500">No trend data available</p>
               </div>
             )}
           </div>
