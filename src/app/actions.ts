@@ -1150,21 +1150,31 @@ export async function searchProductsFiltered(
 }
 
 export async function getBestDeals(limit = 12) {
-  const { data: products } = await supabase
+  const { data: products, error } = await supabase
     .from("products")
-    .select("id, title, current_price, image_url, openby_index, created_at, ai_insights(score)")
+    .select("id, title, current_price, image_url, openby_index, created_at")
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (!products) return [];
+  if (error) {
+    console.error("[getBestDeals]", error.message);
+    return [];
+  }
+  if (!products || products.length === 0) return [];
 
-  return products.map((product) => {
-    const score = product.openby_index ?? (product.ai_insights as { score: number }[])?.[0]?.score ?? null;
-    return {
-      ...product,
-      ai_score: score,
-    };
-  });
+  const { data: insights } = await supabase
+    .from("ai_insights")
+    .select("product_id, score")
+    .in("product_id", products.map((p) => p.id));
+
+  const insightScoreByProduct = new Map(
+    (insights ?? []).map((i) => [i.product_id, i.score as number])
+  );
+
+  return products.map((product) => ({
+    ...product,
+    ai_score: product.openby_index ?? insightScoreByProduct.get(product.id) ?? null,
+  }));
 }
 
 export type BestDealsSort =

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import {
   Laptop,
   Monitor,
@@ -15,9 +14,8 @@ import {
   Tv,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { getBestDeals } from "@/app/actions";
-import { BestDealsSlideshow } from "@/components/best-deals-slideshow";
+import { getBestDealsFiltered } from "@/app/actions";
+import { BestDealsSection } from "@/components/best-deals-section";
 import { CATEGORIES } from "@/lib/categories";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -36,7 +34,11 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 export default async function CategoriesPage() {
-  const bestDeals = await getBestDeals(12);
+  const { products: bestDeals } = await getBestDealsFiltered({
+    sort: "score",
+    limit: 5,
+    page: 1,
+  });
 
   return (
     <div className="min-h-screen">
@@ -88,84 +90,8 @@ export default async function CategoriesPage() {
         </div>
       </section>
 
-      {/* Best Deals Slideshow */}
-      <section id="best-deals" className="relative border-b border-zinc-200/80 bg-gradient-to-b from-indigo-50/40 via-blue-50/30 to-white py-20">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_70%_50%,rgba(59,130,246,0.18),rgba(168,85,247,0.08),transparent_60%)]" />
-        <div className="relative mx-auto max-w-6xl px-6">
-          <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
-              Best Deals Right Now
-            </h2>
-            <p className="mt-3 text-zinc-600">
-              Products with the best OpenBy Index
-            </p>
-          </div>
-          {bestDeals.length > 0 ? (
-            <BestDealsSlideshow products={bestDeals} />
-          ) : (
-            <div className="rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50/50 py-16 text-center">
-              <p className="text-zinc-600">
-                No deals yet. Search for products to get AI-powered
-                recommendations!
-              </p>
-              <Link
-                href="/search"
-                className="mt-4 inline-block font-medium text-blue-600 hover:underline"
-              >
-                Start searching →
-              </Link>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Best Deals Grid Section */}
-      <section className="relative border-b border-zinc-200/80 bg-gradient-to-b from-white via-purple-50/20 to-indigo-50/30 py-20">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_100%_60%_at_50%_80%,rgba(168,85,247,0.15),rgba(99,102,241,0.08),transparent_65%)]" />
-        <div className="relative mx-auto max-w-6xl px-6">
-          <div className="mb-12 text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-zinc-900 sm:text-4xl">
-              Top Picks for You
-            </h2>
-            <p className="mt-3 text-zinc-600">
-              Our highest-rated deals across all categories
-            </p>
-          </div>
-          {bestDeals.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {bestDeals.slice(0, 8).map((product) => (
-                <Link key={product.id} href={`/product/${product.id}`}>
-                  <Card className="group h-full overflow-hidden border-zinc-200/80 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-zinc-300 hover:shadow-xl">
-                    <div className="relative aspect-square w-full bg-gradient-to-br from-zinc-50 to-zinc-100">
-                      <Image
-                        src={product.image_url?.trim() || "https://placehold.co/400"}
-                        alt={product.title}
-                        fill
-                        unoptimized
-                        className="object-contain p-5 transition-transform duration-300 group-hover:scale-105"
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                      />
-                    </div>
-                    <CardContent className="flex flex-col gap-4 p-5">
-                      <h3 className="line-clamp-2 font-medium text-zinc-900">
-                        {product.title}
-                      </h3>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-xl font-bold text-zinc-900">
-                          ${Number(product.current_price).toFixed(2)}
-                        </p>
-                        <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm">
-                          OpenBy Index: {product.ai_score ?? "—"}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </section>
+      {/* Best Deals - same as main page */}
+      <BestDealsSection products={bestDeals} emptyLinkHref="/search" />
     </div>
   );
 }

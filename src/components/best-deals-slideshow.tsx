@@ -32,7 +32,7 @@ function ProductCard({ product }: { product: Product }) {
       style={{ width: CARD_WIDTH }}
     >
       <Card className="group h-full w-full overflow-hidden border-zinc-200/80 bg-white p-0 transition-all duration-300 hover:-translate-y-1 hover:border-zinc-300 hover:shadow-xl">
-        <div className="relative aspect-square w-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600">
+        <div className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600">
           <Image
             src={product.image_url?.trim() || "https://placehold.co/400"}
             alt={product.title}
