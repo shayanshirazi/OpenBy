@@ -1,7 +1,8 @@
 "use server";
 
-import { supabase } from "@/lib/supabase";
+import { supabase, getSupabaseAdmin } from "@/lib/supabase";
 import { mockSearchAmazon } from "@/lib/mock-amazon";
+import { fetchProductImageFromNews } from "@/lib/serpapi-news";
 import { searchGoogleImage } from "@/lib/google-images";
 import {
   generate,
@@ -28,6 +29,7 @@ import {
 } from "@/lib/volatility";
 import { computeMovingAverageAnalysis } from "@/lib/moving-average";
 import { fetchProductPrice } from "@/lib/priceapi";
+import { calculateOpenByIndexFromPartial, type IndexCategory } from "@/lib/openby-index";
 
 /**
  * Generate AI response via OpenRouter (Gemini, Claude, GPT, etc.).
@@ -342,6 +344,71 @@ export async function getSocialMediaPresence(
   };
 }
 
+/** Fetch approximate historical prices from Gemini when real data is unavailable. */
+export async function getHistoricalPricesFromGemini(
+  productName: string,
+  category: string | null | undefined,
+  currentPrice: number
+): Promise<{ date: string; price: number }[]> {
+  try {
+    const productContext = category ? `${productName} (${category})` : productName;
+    const content = await generate(
+      `You are a retail price analyst. Estimate approximate daily prices for this product over the past 100 days.
+Product: ${productContext}
+Current price (most recent day): $${currentPrice.toFixed(2)}
+
+Provide a plausible price history. Consider:
+- Tech products often have gradual declines, occasional sales dips, or Black Friday spikes
+- Prices typically fluctuate 2-15% over 100 days
+- The last day MUST be exactly $${currentPrice.toFixed(2)}
+- Work backwards from today
+
+Return ONLY a list of lines in format: YYYY-MM-DD,price
+Example:
+2025-01-15,389.99
+2025-01-16,395.00
+...
+${new Date().toISOString().split("T")[0]},${currentPrice.toFixed(2)}
+
+Provide about 30-50 points spread over the past 100 days (can skip some days). Start from the oldest date.`,
+      {
+        model: "google/gemini-2.0-flash-001",
+        temperature: 0.4,
+        maxTokens: 6000,
+      }
+    );
+
+    const lines = (content ?? "")
+      .trim()
+      .split(/\n/)
+      .map((l) => l.trim())
+      .filter((l) => /^\d{4}-\d{2}-\d{2}\s*,\s*[\d.]+$/.test(l));
+
+    const points: { date: string; price: number }[] = [];
+    const seen = new Set<string>();
+    for (const line of lines) {
+      const [dateStr, priceStr] = line.split(",").map((s) => s.trim());
+      if (!dateStr || !priceStr) continue;
+      const price = parseFloat(priceStr);
+      if (Number.isNaN(price) || price <= 0) continue;
+      if (seen.has(dateStr)) continue;
+      seen.add(dateStr);
+      points.push({ date: dateStr, price: Math.round(price * 100) / 100 });
+    }
+
+    if (points.length < 7) return [];
+
+    const sorted = [...points].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    const last = sorted[sorted.length - 1];
+    if (last) last.price = currentPrice;
+    return sorted;
+  } catch {
+    return [];
+  }
+}
+
 /** Generate mock price history when real data is unavailable. Deterministic per productId. */
 function generateMockPriceHistory(
   productId: string,
@@ -621,6 +688,49 @@ export async function getProductSearchTrends(
   return getGoogleTrendsData(productName, category);
 }
 
+/**
+ * Get top 8 related search terms for a product. Uses API data when available,
+ * falls back to Gemini when insufficient results.
+ */
+export async function getRelatedSearchTerms(
+  productName: string,
+  category?: string | null,
+  existingQueries: string[] = []
+): Promise<string[]> {
+  const existing = existingQueries
+    .map((q) => q?.trim())
+    .filter((q): q is string => Boolean(q))
+    .filter((q, i, arr) => arr.indexOf(q) === i);
+
+  if (existing.length >= 8) return existing.slice(0, 8);
+
+  try {
+    const productContext = category ? `${productName} (${category})` : productName;
+    const content = await generate(
+      `List exactly 8 short search queries that people commonly use when researching or shopping for this product. Each query should be 2-6 words. Be specific and practical (e.g. "best laptop 2024", "MacBook Pro vs Dell", "wireless keyboard reviews").
+Product: ${productContext}
+${existing.length > 0 ? `Already have: ${existing.join(", ")}. Generate ${8 - existing.length} more that are different.` : ""}
+Return ONLY 8 queries, one per line, no numbering or bullets.`,
+      {
+        model: "google/gemini-2.0-flash-001",
+        temperature: 0.5,
+        maxTokens: 150,
+      }
+    );
+
+    const existingLower = new Set(existing.map((e) => e.toLowerCase()));
+    const lines = (content ?? "")
+      .trim()
+      .split(/\n/)
+      .map((l) => l.replace(/^\d+[\.\)]\s*/, "").trim())
+      .filter((l) => l.length >= 2 && l.length <= 80 && !existingLower.has(l.toLowerCase()));
+    const generated = lines.slice(0, 8 - existing.length);
+    return [...existing, ...generated].slice(0, 8);
+  } catch {
+    return existing.slice(0, 8);
+  }
+}
+
 export async function submitFeedback(formData: FormData) {
   const name = formData.get("name")?.toString()?.trim();
   const email = formData.get("email")?.toString()?.trim();
@@ -657,6 +767,13 @@ function isPlaceholderImage(url: string | null | undefined): boolean {
   return url.includes("placehold.co");
 }
 
+/** Try News API first (SerpAPI), then Google Images as fallback (limited daily quota). */
+async function fetchProductImage(title: string): Promise<string | null> {
+  const fromNews = await fetchProductImageFromNews(title);
+  if (fromNews) return fromNews;
+  return searchGoogleImage(title);
+}
+
 async function ensureProductImageUrl(
   productId: string,
   title: string,
@@ -673,13 +790,11 @@ async function ensureProductImageUrl(
   const existing = row?.image_url?.toString()?.trim();
   if (existing && !isPlaceholderImage(existing)) return existing;
 
-  const imageUrl = await searchGoogleImage(title);
+  const imageUrl = await fetchProductImage(title);
   if (!imageUrl) return currentUrl ?? null;
 
-  await supabase
-    .from("products")
-    .update({ image_url: imageUrl })
-    .eq("id", productId);
+  const db = getSupabaseAdmin();
+  await db.from("products").update({ image_url: imageUrl }).eq("id", productId);
 
   return imageUrl;
 }
@@ -710,10 +825,8 @@ async function ensureProductDescription(
   const generated = result?.trim();
   if (!generated) return null;
 
-  await supabase
-    .from("products")
-    .update({ description: generated })
-    .eq("id", productId);
+  const db = getSupabaseAdmin();
+  await db.from("products").update({ description: generated }).eq("id", productId);
 
   return generated;
 }
@@ -740,17 +853,16 @@ export async function getProductById(id: string) {
     .select("*")
     .eq("product_id", product.id);
 
-  const description =
-    product.description?.trim() ??
-    (await ensureProductDescription(product.id, product.title ?? "", product.category));
+  const needsDescription = !product.description?.trim();
+  const needsImage = isPlaceholderImage(product.image_url);
 
-  const imageUrl =
-    (await ensureProductImageUrl(
-      product.id,
-      product.title ?? "",
-      product.category,
-      product.image_url
-    )) ?? product.image_url;
+  const [descriptionResult, imageUrlResult] = await Promise.all([
+    needsDescription ? ensureProductDescription(product.id, product.title ?? "", product.category) : Promise.resolve(null),
+    needsImage ? ensureProductImageUrl(product.id, product.title ?? "", product.category, product.image_url) : Promise.resolve(null),
+  ]);
+
+  const description = product.description?.trim() ?? descriptionResult ?? null;
+  const imageUrl = (imageUrlResult ?? product.image_url) ?? product.image_url;
 
   return {
     ...product,
@@ -759,6 +871,80 @@ export async function getProductById(id: string) {
     price_history: priceHistory ?? [],
     ai_insights: aiInsights ?? [],
   };
+}
+
+/** Save OpenBy Index to products and ai_insights (for card display). */
+export async function saveProductOpenByIndex(productId: string, openByIndex: number): Promise<void> {
+  const db = getSupabaseAdmin();
+  const score = Math.round(openByIndex);
+  await db.from("products").update({ openby_index: score }).eq("id", productId);
+  const { data: rows } = await db.from("ai_insights").select("id").eq("product_id", productId).limit(1);
+  if (rows?.length) {
+    await db.from("ai_insights").update({ score }).eq("product_id", productId);
+  } else {
+    await db.from("ai_insights").insert({ product_id: productId, score, summary: `OpenBy Index: ${score}/100` });
+  }
+}
+
+/** Calculate full OpenBy Index for a product and save to DB. Used for backfill. Ensures description & image first. */
+export async function calculateAndSaveProductOpenByIndex(productId: string): Promise<number | null> {
+  const product = await getProductById(productId);
+  if (!product) return null;
+
+  const title = product.title ?? "";
+  const description = product.description ?? "";
+  const currentPrice = Number(product.current_price) || 0;
+  const priceHistory = (product.price_history ?? []) as Array<{ price: number; date?: string }>;
+
+  const scores: Partial<Record<IndexCategory, number>> = {};
+
+  const sections: IndexCategory[] = [
+    "relatedNews",
+    "llmScore",
+    "socialMediaPresence",
+    "searchTrend",
+    "volatility",
+    "movingAverage",
+    "inflationScore",
+  ];
+
+  let effectiveHistory = priceHistory;
+  if (priceHistory.length < 7) {
+    const fromGemini = await getHistoricalPricesFromGemini(title, product.category, currentPrice);
+    effectiveHistory = fromGemini.length >= 7 ? fromGemini : priceHistory;
+  }
+
+  try {
+    const [newsData, inflationData, llmData] = await Promise.all([
+      getRelatedNews(title),
+      getCanadaInflation(),
+      getLLMProductScores(title, description),
+    ]);
+    scores.relatedNews = newsData.score;
+    scores.inflationScore = inflationData.score;
+    scores.llmScore = llmData.llmScore;
+
+    const socialData = await getSocialMediaPresence(title);
+    scores.socialMediaPresence = socialData.score;
+
+    const searchData = await getProductSearchTrends(title, product.category);
+    scores.searchTrend = searchData.score;
+
+    const volatilityData = await getProductVolatility(productId, currentPrice, effectiveHistory);
+    scores.volatility = volatilityData.score;
+
+    const maData = await getProductMovingAverage(productId, currentPrice, effectiveHistory);
+    scores.movingAverage = maData.score;
+
+    scores.predictedPrice = 100;
+
+    const openByIndex = calculateOpenByIndexFromPartial(scores);
+    await saveProductOpenByIndex(productId, openByIndex);
+    return openByIndex;
+  } catch (err) {
+    console.error(`[calculateAndSaveProductOpenByIndex] ${productId}:`, err);
+    return null;
+  }
 }
 
 export async function getProduct(asin: string) {
@@ -804,9 +990,10 @@ export async function searchProducts(query: string) {
           .select("score, summary")
           .eq("product_id", product.id);
         const insight = aiInsights?.[0];
+        const score = product.openby_index ?? insight?.score ?? null;
         return {
           ...product,
-          ai_score: insight?.score ?? null,
+          ai_score: score,
           ai_summary: insight?.summary ?? null,
         };
       })
@@ -965,15 +1152,14 @@ export async function searchProductsFiltered(
 export async function getBestDeals(limit = 12) {
   const { data: products } = await supabase
     .from("products")
-    .select("id, title, current_price, image_url, created_at, ai_insights(score)")
+    .select("id, title, current_price, image_url, openby_index, created_at, ai_insights(score)")
     .order("created_at", { ascending: false })
     .limit(limit);
 
   if (!products) return [];
 
   return products.map((product) => {
-    const aiInsights = product.ai_insights as { score: number }[] | null;
-    const score = aiInsights?.[0]?.score ?? null;
+    const score = product.openby_index ?? (product.ai_insights as { score: number }[])?.[0]?.score ?? null;
     return {
       ...product,
       ai_score: score,
@@ -1012,7 +1198,7 @@ export async function getBestDealsFiltered(options: {
 
   const { data: products, error } = await supabase
     .from("products")
-    .select("id, title, current_price, image_url, created_at, category")
+    .select("id, title, current_price, image_url, openby_index, created_at, category")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -1027,13 +1213,13 @@ export async function getBestDealsFiltered(options: {
     .from("ai_insights")
     .select("product_id, score")
     .in("product_id", products.map((p) => p.id));
-  const scoreByProduct = new Map(
+  const insightScoreByProduct = new Map(
     (insights ?? []).map((i) => [i.product_id, i.score as number])
   );
 
   let filtered = products.map((product) => ({
     ...product,
-    ai_score: scoreByProduct.get(product.id) ?? null,
+    ai_score: product.openby_index ?? insightScoreByProduct.get(product.id) ?? null,
   }));
 
   if (category) {
@@ -1087,7 +1273,7 @@ export async function getRelatedProducts(
 ) {
   let query = supabase
     .from("products")
-    .select("id, title, current_price, image_url, ai_insights(score)")
+    .select("id, title, current_price, image_url, openby_index, ai_insights(score)")
     .neq("id", excludeId);
 
   if (category) {
@@ -1101,8 +1287,7 @@ export async function getRelatedProducts(
   if (!products) return [];
 
   const withScore = products.map((product) => {
-    const aiInsights = product.ai_insights as { score: number }[] | null;
-    const score = aiInsights?.[0]?.score ?? null;
+    const score = product.openby_index ?? (product.ai_insights as { score: number }[])?.[0]?.score ?? null;
     return {
       ...product,
       ai_score: score,

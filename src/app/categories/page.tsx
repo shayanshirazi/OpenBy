@@ -138,7 +138,7 @@ export default async function CategoriesPage() {
                   <Card className="group h-full overflow-hidden border-zinc-200/80 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-zinc-300 hover:shadow-xl">
                     <div className="relative aspect-square w-full bg-gradient-to-br from-zinc-50 to-zinc-100">
                       <Image
-                        src={product.image_url ?? "https://placehold.co/400"}
+                        src={product.image_url?.trim() || "https://placehold.co/400"}
                         alt={product.title}
                         fill
                         unoptimized

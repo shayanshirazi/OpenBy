@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { ChevronDown, Search, Laptop, Monitor, Smartphone, Headphones, Sparkles, Tablet } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useProductSuggestions } from "@/hooks/use-product-suggestions";
 
 const FLOATING_ICONS = [
   { Icon: Laptop, x: "12%", y: "22%", size: 26 },
@@ -19,6 +20,10 @@ export function HeroSearch() {
   const [isHovering, setIsHovering] = useState(false);
   const rafRef = useRef<number>();
   const targetRef = useRef({ x: 0.5, y: 0.5 });
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const closeTimeoutRef = useRef<number>();
+  const { suggestions } = useProductSuggestions(query);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
@@ -57,7 +62,7 @@ export function HeroSearch() {
       ref={sectionRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6"
+      className="relative flex min-h-screen flex-col items-center justify-center overflow-visible px-6"
     >
       {/* Base mesh gradient background */}
       <div className="absolute inset-0 -z-20 bg-[linear-gradient(180deg,#eff6ff_0%,#e0e7ff_25%,#e0f2fe_50%,#f0f9ff_75%,#eef2ff_100%)]" />
@@ -155,7 +160,43 @@ export function HeroSearch() {
             placeholder="Search laptops, monitors, phones & more..."
             className="h-16 rounded-2xl border-2 border-zinc-200/90 bg-white/90 py-4 pl-14 pr-5 text-base shadow-xl shadow-zinc-300/30 backdrop-blur-sm transition-all duration-300 placeholder:text-zinc-400 hover:border-zinc-300 hover:shadow-2xl hover:shadow-blue-500/5 focus-visible:border-blue-400 focus-visible:ring-4 focus-visible:ring-blue-500/15 focus-visible:shadow-2xl focus-visible:shadow-blue-500/10"
             autoComplete="off"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => {
+              if (closeTimeoutRef.current) window.clearTimeout(closeTimeoutRef.current);
+              setIsOpen(true);
+            }}
+            onBlur={() => {
+              closeTimeoutRef.current = window.setTimeout(() => setIsOpen(false), 150);
+            }}
           />
+
+          {isOpen && suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-[100] mt-3 rounded-2xl border border-zinc-200 bg-white/95 p-2 shadow-2xl backdrop-blur-sm">
+              {suggestions.map((item) => (
+                <a
+                  key={item.id}
+                  href={`/product/${item.id}`}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-zinc-100"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={item.image_url?.trim() || "https://placehold.co/64"}
+                    alt=""
+                    className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                    aria-hidden
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-zinc-900">{item.title}</p>
+                  </div>
+                  <span className="rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-2.5 py-1 text-xs font-semibold text-white">
+                    {item.score ?? "—"}
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
         </form>
       </div>
 

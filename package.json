@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "backfill-index": "npx tsx scripts/backfill-openby-index.ts",
+    "seed": "npx tsx scripts/seed-database.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",

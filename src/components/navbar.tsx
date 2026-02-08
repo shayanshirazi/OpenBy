@@ -2,13 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useProductSuggestions } from "@/hooks/use-product-suggestions";
 
 export function Navbar() {
   const pathname = usePathname();
   const [showOnHome, setShowOnHome] = useState(false);
+  const [query, setQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const closeTimeoutRef = useRef<number>();
+  const { suggestions } = useProductSuggestions(query);
 
   useEffect(() => {
     if (pathname !== "/") return;
@@ -51,7 +56,43 @@ export function Navbar() {
             placeholder="What are you looking for today?"
             className="h-10 border-zinc-200/80 bg-white/60 pl-10 transition-colors focus-visible:border-blue-300 focus-visible:bg-white"
             autoComplete="off"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => {
+              if (closeTimeoutRef.current) window.clearTimeout(closeTimeoutRef.current);
+              setIsOpen(true);
+            }}
+            onBlur={() => {
+              closeTimeoutRef.current = window.setTimeout(() => setIsOpen(false), 150);
+            }}
           />
+
+          {isOpen && suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-[60] mt-2 rounded-xl border border-zinc-200 bg-white/95 p-2 shadow-xl backdrop-blur-sm">
+              {suggestions.map((item) => (
+                <a
+                  key={item.id}
+                  href={`/product/${item.id}`}
+                  className="flex items-center gap-2 rounded-lg px-2.5 py-2 transition-colors hover:bg-zinc-100"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={item.image_url?.trim() || "https://placehold.co/48"}
+                    alt=""
+                    className="h-9 w-9 shrink-0 rounded-md object-cover"
+                    aria-hidden
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-zinc-900">{item.title}</p>
+                  </div>
+                  <span className="rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-2 py-0.5 text-[0.7rem] font-semibold text-white">
+                    {item.score ?? "—"}
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
         </form>
 
         {/* Right: Links */}

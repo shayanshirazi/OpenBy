@@ -37,14 +37,14 @@ function ProductCard({ product }: { product: Product }) {
       className="shrink-0"
       style={{ width: CARD_WIDTH }}
     >
-      <Card className="h-full w-full overflow-hidden rounded-xl border border-zinc-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_2px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.04)]">
-        <div className="relative aspect-[16/10] w-full bg-zinc-100">
+      <Card className="h-full w-full overflow-hidden rounded-xl border border-zinc-200/80 p-0 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_2px_8px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.04)]">
+        <div className="relative aspect-[16/10] w-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600">
           <Image
-            src={product.image_url ?? "https://placehold.co/400"}
+            src={product.image_url?.trim() || "https://placehold.co/400"}
             alt={product.title}
             fill
             unoptimized
-            className="object-contain p-3"
+            className="object-cover"
             sizes="260px"
           />
         </div>

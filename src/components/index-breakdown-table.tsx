@@ -1,23 +1,36 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { IndexBreakdown } from "@/lib/openby-index";
+import type { IndexBreakdown, IndexBreakdownRow, IndexCategory } from "@/lib/openby-index";
 import { CATEGORY_DESCRIPTIONS } from "@/lib/openby-index";
-import { ArrowUp, ArrowDown, HelpCircle } from "lucide-react";
+import { ArrowUp, ArrowDown, HelpCircle, Loader2 } from "lucide-react";
+
+const CATEGORY_TO_SECTION: Partial<Record<IndexCategory, string>> = {
+  relatedNews: "related-news",
+  inflationScore: "inflation",
+  predictedPrice: "openby-index",
+  llmScore: "llm-score",
+  movingAverage: "moving-average",
+  volatility: "volatility",
+  socialMediaPresence: "social-media",
+  searchTrend: "search-trend",
+};
 
 type SortOption = "category" | "weight" | "score" | "contribution";
 
 type IndexBreakdownTableProps = {
-  breakdown: IndexBreakdown[];
+  breakdown: IndexBreakdown[] | IndexBreakdownRow[];
   totalScore: number;
+  /** Section currently being calculated - shows spinner; others show "—" */
+  calculatingSection?: IndexCategory | null;
 };
 
-export function IndexBreakdownTable({ breakdown, totalScore }: IndexBreakdownTableProps) {
+export function IndexBreakdownTable({ breakdown, totalScore, calculatingSection = null }: IndexBreakdownTableProps) {
   const [sortBy, setSortBy] = useState<SortOption>("weight");
   const [asc, setAsc] = useState(false);
 
   const sortedBreakdown = useMemo(() => {
-    const copy = [...breakdown];
+    const copy = [...breakdown] as IndexBreakdownRow[];
     copy.sort((a, b) => {
       let cmp = 0;
       switch (sortBy) {
@@ -135,7 +148,16 @@ export function IndexBreakdownTable({ breakdown, totalScore }: IndexBreakdownTab
             <tr key={row.category} className="border-b border-zinc-100 last:border-0">
               <td className="overflow-visible px-6 py-3">
                 <div className="flex items-center gap-1.5 overflow-visible">
-                  <span className="text-sm font-medium text-zinc-900">{row.label}</span>
+                  {CATEGORY_TO_SECTION[row.category] ? (
+                    <a
+                      href={`#${CATEGORY_TO_SECTION[row.category]}`}
+                      className="cursor-pointer text-sm font-medium text-zinc-900 underline underline-offset-2 transition-opacity hover:opacity-80"
+                    >
+                      {row.label}
+                    </a>
+                  ) : (
+                    <span className="text-sm font-medium text-zinc-900">{row.label}</span>
+                  )}
                   <div className="group relative inline-flex overflow-visible">
                     <HelpCircle
                       className="h-4 w-4 shrink-0 cursor-help text-zinc-400 transition-colors hover:text-indigo-500"
@@ -151,12 +173,35 @@ export function IndexBreakdownTable({ breakdown, totalScore }: IndexBreakdownTab
                 </div>
               </td>
               <td className="px-6 py-3 text-right text-sm text-zinc-600">{row.weight}%</td>
-              <td className={`px-6 py-3 text-right text-sm ${getScoreColor(row.score)}`}>
-                {(row.score / 10).toFixed(1)}
-                <span className="align-sub text-[0.65em] font-normal opacity-80">/10</span>
+              <td className="px-6 py-3 text-right text-sm">
+                {(row as IndexBreakdownRow).isLoading ? (
+                  calculatingSection === row.category ? (
+                    <span className="inline-flex items-center gap-1.5 text-indigo-600 font-medium">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span className="text-xs">Calculating…</span>
+                    </span>
+                  ) : (
+                    <span className="text-zinc-300">—</span>
+                  )
+                ) : (
+                  <span className={getScoreColor(row.score)}>
+                    {(row.score / 10).toFixed(1)}
+                    <span className="text-[0.65em] font-normal opacity-80">/10</span>
+                  </span>
+                )}
               </td>
-              <td className={`px-6 py-3 text-right text-sm ${getContributionColor(row.weightedScore, row.weight)}`}>
-                {row.weightedScore.toFixed(1)}
+              <td className={`px-6 py-3 text-right text-sm ${(row as IndexBreakdownRow).isLoading ? (calculatingSection === row.category ? "text-indigo-600" : "text-zinc-300") : getContributionColor(row.weightedScore, row.weight)}`}>
+                {(row as IndexBreakdownRow).isLoading ? (
+                  calculatingSection === row.category ? (
+                    <span className="inline-flex items-center justify-end gap-1.5">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    </span>
+                  ) : (
+                    "—"
+                  )
+                ) : (
+                  row.weightedScore.toFixed(1)
+                )}
               </td>
             </tr>
           ))}
@@ -166,9 +211,9 @@ export function IndexBreakdownTable({ breakdown, totalScore }: IndexBreakdownTab
             <td className="px-6 py-4 text-sm font-semibold text-zinc-900" colSpan={3}>
               OpenBy Index
             </td>
-            <td className={`px-6 py-4 text-right text-lg font-bold ${totalScoreColor}`}>
-              {(totalScore / 10).toFixed(1)}
-              <span className="align-sub text-[0.55em] font-normal opacity-80">/10</span>
+            <td className={`px-6 py-4 text-right text-lg font-bold transition-colors duration-500 ${totalScoreColor}`}>
+              <span className="tabular-nums">{(totalScore / 10).toFixed(1)}</span>
+              <span className="text-[0.55em] font-normal opacity-80">/10</span>
             </td>
           </tr>
         </tfoot>

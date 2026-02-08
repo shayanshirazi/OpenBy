@@ -42,10 +42,13 @@ export async function getCanadaInflationData(): Promise<CanadaInflationResult> {
     end_date: endDate.toISOString().slice(0, 10),
   });
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
   try {
     const res = await fetch(
       `${API_BASE}/observations/${SERIES}/json?${params}`,
-      { next: { revalidate: 86400 } } // cache 24h
+      { next: { revalidate: 86400 }, signal: controller.signal } // cache 24h
     );
 
     if (!res.ok) {
@@ -78,18 +81,24 @@ export async function getCanadaInflationData(): Promise<CanadaInflationResult> {
     const latest = dataPoints.length > 0 ? dataPoints[dataPoints.length - 1]!.value : 2;
     const score = inflationToScore(latest);
 
+    clearTimeout(timeoutId);
     return {
       score,
       latestValue: latest,
       dataPoints,
     };
   } catch (err) {
+    clearTimeout(timeoutId);
+    const message =
+      err instanceof Error && err.name === "AbortError"
+        ? "Inflation data request timed out"
+        : err instanceof Error ? err.message : "Failed to fetch inflation data";
     console.error("Bank of Canada inflation fetch error:", err);
     return {
       score: 50,
       latestValue: 2,
       dataPoints: [],
-      error: err instanceof Error ? err.message : "Failed to fetch inflation data",
+      error: message,
     };
   }
 }

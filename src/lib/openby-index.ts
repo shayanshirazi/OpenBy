@@ -54,10 +54,15 @@ export const CATEGORY_DESCRIPTIONS: Record<IndexCategory, string> = {
     "Google Trends shows whether search interest is rising or falling, which often precedes changes in demand.",
 };
 
+const WEIGHT_DESC_ORDER: IndexCategory[] = [
+  "predictedPrice", "relatedNews", "llmScore", "movingAverage",
+  "volatility", "socialMediaPresence", "searchTrend", "inflationScore",
+];
+
 export function buildIndexBreakdown(scores: Partial<Record<IndexCategory, number>>): IndexBreakdown[] {
   const breakdown: IndexBreakdown[] = [];
 
-  for (const cat of Object.keys(INDEX_WEIGHTS) as IndexCategory[]) {
+  for (const cat of WEIGHT_DESC_ORDER) {
     const weight = INDEX_WEIGHTS[cat];
     const score = scores[cat] ?? 100; // Default full score for unimplemented categories
     breakdown.push({
@@ -70,6 +75,46 @@ export function buildIndexBreakdown(scores: Partial<Record<IndexCategory, number
   }
 
   return breakdown;
+}
+
+/** Score is number | null; null = loading. Uses 0 for loading when computing total. */
+export type IndexBreakdownRow = IndexBreakdown & { isLoading?: boolean };
+
+export function buildIndexBreakdownWithLoading(
+  scores: Partial<Record<IndexCategory, number | null>>
+): IndexBreakdownRow[] {
+  const breakdown: IndexBreakdownRow[] = [];
+
+  for (const cat of WEIGHT_DESC_ORDER) {
+    const weight = INDEX_WEIGHTS[cat];
+    const raw = scores[cat];
+    const isLoading = raw === undefined || raw === null;
+    const score = isLoading ? 0 : raw;
+    breakdown.push({
+      category: cat,
+      label: CATEGORY_LABELS[cat],
+      weight,
+      score,
+      weightedScore: isLoading ? 0 : (score / 100) * weight,
+      isLoading,
+    });
+  }
+
+  return breakdown;
+}
+
+/** Total using 0 for loading items – score starts at 0 and grows as sections complete */
+export function calculateOpenByIndexFromPartial(
+  scores: Partial<Record<IndexCategory, number | null>>
+): number {
+  let total = 0;
+  for (const cat of WEIGHT_DESC_ORDER) {
+    const weight = INDEX_WEIGHTS[cat];
+    const s = scores[cat];
+    if (s === undefined || s === null) continue;
+    total += (s / 100) * weight;
+  }
+  return Math.round(Math.min(100, Math.max(0, total)));
 }
 
 export function calculateOpenByIndex(breakdown: IndexBreakdown[]): number {

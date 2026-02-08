@@ -31,14 +31,14 @@ function ProductCard({ product }: { product: Product }) {
       className="shrink-0"
       style={{ width: CARD_WIDTH }}
     >
-      <Card className="group h-full w-full overflow-hidden border-zinc-200/80 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-zinc-300 hover:shadow-xl">
-        <div className="relative aspect-square w-full bg-gradient-to-br from-zinc-50 to-zinc-100">
+      <Card className="group h-full w-full overflow-hidden border-zinc-200/80 bg-white p-0 transition-all duration-300 hover:-translate-y-1 hover:border-zinc-300 hover:shadow-xl">
+        <div className="relative aspect-square w-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600">
           <Image
-            src={product.image_url ?? "https://placehold.co/400"}
+            src={product.image_url?.trim() || "https://placehold.co/400"}
             alt={product.title}
             fill
             unoptimized
-            className="object-contain p-5 transition-transform duration-300 group-hover:scale-105"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="220px"
           />
         </div>

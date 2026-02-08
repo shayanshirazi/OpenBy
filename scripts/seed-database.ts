@@ -1,17 +1,13 @@
 /**
  * Seed script: Clears DB, inserts 100 products, generates descriptions & fetches images.
- * Run: npx tsx scripts/seed-database.ts
+ * Run: npm run seed
  * Requires: .env.local with Supabase, OPENROUTER_API_KEY, GOOGLE_CSE_API_KEY, GOOGLE_CSE_CX
  */
 
+import "./load-env";
 import { createClient } from "@supabase/supabase-js";
-import { config } from "dotenv";
-import { resolve } from "path";
 import { SEED_PRODUCTS } from "./seed-data";
 import { searchGoogleImage } from "../src/lib/google-images";
-
-// Load .env.local
-config({ path: resolve(process.cwd(), ".env.local") });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
